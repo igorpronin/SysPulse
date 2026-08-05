@@ -1,0 +1,21 @@
+# Сборка
+.build/
+build/
+dist/
+.swiftpm/
+*.dSYM/
+
+# Временные файлы проекта (см. CLAUDE.md)
+tmp/
+
+# Локальные настройки инструментов — на каждой машине свои
+.claude/settings.local.json
+.vscode/
+xcuserdata/
+*.xcuserdatad/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
