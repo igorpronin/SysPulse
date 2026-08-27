@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md)
 
-Current version: **0.4.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
+Current version: **0.5.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
 
 <img src="docs/icon.png" width="96" align="right" alt="SysPulse icon">
 
@@ -22,7 +22,8 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 
 - **Floating window** — a small semi-transparent panel that stays on top of all windows, on every desktop, even over fullscreen apps. Drag it anywhere; the position is remembered.
 - **One menu, two ways in** — right-click the window (or tap it with two fingers) and the same menu the menu bar icon shows drops down right below it. Nothing is reachable from only one of them, and everything stays reachable even when a crowded menu bar hides the icon. The left button is left alone for dragging.
-- **CPU, per core** — one bar per logical core plus the overall percentage. The bars share a fixed width, so the window never changes size as the load moves.
+- **CPU, per core** — one bar per logical core plus the overall percentage, with performance and efficiency cores set apart by a gap and named on hover. On a machine with many cores the strip widens so the bars stay readable instead of thinning to a hairline, and every bar is exactly the same width.
+- **GPU load** — read straight from the system, no permissions and no `powermetrics`. Apple Silicon reports one figure for the whole GPU, so there is no per-core breakdown to show.
 - **Memory of every kind** — one segmented bar with used / total next to it: blue for app memory, orange for wired, violet for compressed, neutral gray for the file cache, and the empty tail is what is free. Colour here says *which kind*, not *how much*, and the steps are validated for colour-blind separation and contrast in both light and dark. Turn on the breakdown to see every kind as numbers, plus swap and the system's memory-pressure level; hovering the RAM label reports that level at any time.
 - **Hover to learn** — hovering a segment of the memory bar names it and gives its size; hovering a row of the breakdown explains what that kind of memory actually is and what it is for, down to what Normal, Warning and Critical pressure mean. Handy if you have ever wondered why a healthy Mac shows almost no free memory.
 - **Free disk space** — a row per mounted local volume with the used fraction as a bar and the free space in figures; hover the bar for how much is used and the volume's full name — the same number Finder shows (on APFS it includes purgeable snapshot space). Hide the volumes you don't care about in settings.

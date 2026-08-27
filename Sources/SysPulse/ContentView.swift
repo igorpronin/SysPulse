@@ -91,7 +91,34 @@ struct ContentView: View {
     // MARK: - Размеры
 
     private var labelWidth: CGFloat { monitor.compact ? 34 : 44 }
-    private var barWidth: CGFloat { monitor.compact ? 62 : 84 }
+
+    /// Зазор между столбиками ядер. При большом их числе ужимается: на 14 ядрах
+    /// полтора пикселя между столбиками съедали бы треть полоски.
+    private var coreSpacing: CGFloat { monitor.cpu.perCore.count > 8 ? 1 : 1.5 }
+
+    /// Зазор между группами E- и P-ядер.
+    private var coreGroupGap: CGFloat { monitor.cpu.efficiencyCores > 0 ? 4 : 0 }
+
+    /// Полоска шире базовой, если ядер много: иначе на 14 ядрах столбик выходит
+    /// в 3 px и превращается в точку. Ширина растёт у ВСЕХ строк сразу, поэтому
+    /// колонки остаются выровненными, а панель просто становится шире.
+    /// Ширина полоски подбирается так, чтобы на столбик приходилось ЦЕЛОЕ число
+    /// полупикселей. Иначе остаток от деления SwiftUI раздаёт паре столбиков, и
+    /// они выходят шире соседей на полточки — на retina это лишний пиксель, и
+    /// строка выглядит кривой. Считаем от размера столбика, а не наоборот.
+    private var barWidth: CGFloat {
+        let base: CGFloat = monitor.compact ? 62 : 84
+        let cores = monitor.cpu.perCore.count
+        guard monitor.showCPU, monitor.showCores, cores > 0 else { return base }
+        // Всё, что в полоске занято не столбиками: зазоры и разделитель групп
+        // (он добавляет к строке ещё один элемент, а значит и ещё один зазор).
+        let nonBar = CGFloat(cores - 1) * coreSpacing
+            + (coreGroupGap > 0 ? coreGroupGap + coreSpacing : 0)
+        let minBar: CGFloat = monitor.compact ? 4 : 6
+        let fitted = floor((base - nonBar) / CGFloat(cores) * 2) / 2
+        let each = max(minBar, fitted)
+        return min(monitor.compact ? 112 : 148, CGFloat(cores) * each + nonBar)
+    }
     private var valueWidth: CGFloat { monitor.compact ? 66 : 86 }
     private var rowSpacing: CGFloat { monitor.compact ? 4 : 6 }
     private var barHeight: CGFloat { monitor.compact ? 6 : 8 }
@@ -108,6 +135,7 @@ struct ContentView: View {
 
     private var isEmpty: Bool {
         !monitor.showCPU && !monitor.showMemory
+            && !(monitor.showGPU && monitor.gpu != nil)
             && !(monitor.showDisks && !monitor.visibleVolumes.isEmpty)
             && !(monitor.showFolders && !folders.folders.isEmpty)
     }
@@ -116,6 +144,8 @@ struct ContentView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: monitor.compact ? 3 : 5) {
             if monitor.showCPU { cpuRow }
+            // Строки GPU нет, если система не отдаёт загрузку.
+            if monitor.showGPU, monitor.gpu != nil { gpuRow }
             if monitor.showMemory {
                 memoryRow
                 if monitor.showMemoryDetails { memoryDetails }
@@ -179,6 +209,13 @@ struct ContentView: View {
             } else {
                 bar(fraction: monitor.cpu.total)
             }
+        }
+    }
+
+    private var gpuRow: some View {
+        let load = monitor.gpu ?? 0
+        return row(label: l10n.t(.gpu), value: Fmt.percent(load)) {
+            bar(fraction: load)
         }
     }
 
@@ -353,11 +390,20 @@ struct ContentView: View {
     /// Столбик на каждое логическое ядро; ширина полоски фиксирована,
     /// столбики делят её поровну — окошко не «дышит» при смене числа ядер.
     private var coreStrip: some View {
-        HStack(alignment: .bottom, spacing: 1.5) {
-            ForEach(Array(monitor.cpu.perCore.enumerated()), id: \.offset) { _, load in
+        let cpu = monitor.cpu
+        let radius: CGFloat = cpu.perCore.count > 8 ? 1 : 1.5
+        return HStack(alignment: .bottom, spacing: coreSpacing) {
+            ForEach(Array(cpu.perCore.enumerated()), id: \.offset) { index, load in
+                // Экономичные ядра идут первыми, производительные следом.
+                // Разделитель — отдельный элемент, а НЕ padding на столбике:
+                // столбики тянутся по maxWidth: .infinity, и отступ отъел бы
+                // ширину у самого столбика, сделав его уже соседей.
+                if index == cpu.efficiencyCores, cpu.efficiencyCores > 0 {
+                    Color.clear.frame(width: coreGroupGap, height: 1)
+                }
                 ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous).fill(trackColor)
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous).fill(trackColor)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .fill(loadColor(load))
                         .frame(height: max(1.5, coreHeight * min(1, max(0, load))))
                 }
@@ -365,6 +411,14 @@ struct ContentView: View {
             }
         }
         .frame(width: barWidth, height: coreHeight)
+        .hoverTip(coreTip)
+    }
+
+    private var coreTip: String? {
+        let cpu = monitor.cpu
+        guard cpu.efficiencyCores > 0 else { return nil }
+        return "\(l10n.t(.efficiencyCores)): \(cpu.efficiencyCores)"
+            + "\n\(l10n.t(.performanceCores)): \(cpu.performanceCores)"
     }
 
     /// Виды памяти в порядке укладки в полоску. Цвет здесь кодирует «что это»,

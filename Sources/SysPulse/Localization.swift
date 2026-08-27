@@ -2,7 +2,8 @@ import Foundation
 import Combine
 
 enum L10nKey: String {
-    case cpu, memory, disk, free, used
+    case cpu, gpu, memory, disk, free, used
+    case showGPU, performanceCores, efficiencyCores
     case appMemory, wired, compressed, cached, freeMemory, swap
     case pressure, pressureNormal, pressureWarning, pressureCritical
     // Образовательные подсказки: всплывают при наведении на строку разбивки.
@@ -55,6 +56,7 @@ final class L10n: ObservableObject {
     private static let tables: [String: [L10nKey: String]] = [
         "en": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Disk",
             .free: "free",
@@ -125,10 +127,14 @@ final class L10n: ObservableObject {
             .upToDate: "You are running the latest version.",
             .checkFailed: "Could not reach GitHub to check for updates.",
             .openRelease: "Open release page",
+            .showGPU: "GPU load",
+            .performanceCores: "Performance cores",
+            .efficiencyCores: "Efficiency cores",
             .aboutText: "Real-time monitor of CPU load (per core), memory of every kind and free disk space in a small floating window.",
         ],
         "ru": [
             .cpu: "ЦП",
+            .gpu: "GPU",
             .memory: "ОЗУ",
             .disk: "Диск",
             .free: "своб.",
@@ -199,10 +205,14 @@ final class L10n: ObservableObject {
             .upToDate: "У вас последняя версия.",
             .checkFailed: "Не удалось связаться с GitHub для проверки обновлений.",
             .openRelease: "Открыть страницу релиза",
+            .showGPU: "Загрузка GPU",
+            .performanceCores: "Производительные ядра",
+            .efficiencyCores: "Экономичные ядра",
             .aboutText: "Мониторинг в реальном времени: загрузка процессора (по ядрам), оперативная память всех видов и свободное место на дисках в маленьком плавающем окошке.",
         ],
         "es": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Disco",
             .free: "libre",
@@ -273,10 +283,14 @@ final class L10n: ObservableObject {
             .upToDate: "Ya tienes la última versión.",
             .checkFailed: "No se pudo conectar con GitHub para buscar actualizaciones.",
             .openRelease: "Abrir la página de la versión",
+            .showGPU: "Carga de GPU",
+            .performanceCores: "Núcleos de rendimiento",
+            .efficiencyCores: "Núcleos de eficiencia",
             .aboutText: "Monitor en tiempo real de la carga de CPU (por núcleo), la memoria de todo tipo y el espacio libre en disco en una pequeña ventana flotante.",
         ],
         "de": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Laufwerk",
             .free: "frei",
@@ -347,10 +361,14 @@ final class L10n: ObservableObject {
             .upToDate: "Sie haben die neueste Version.",
             .checkFailed: "GitHub war für die Update-Prüfung nicht erreichbar.",
             .openRelease: "Release-Seite öffnen",
+            .showGPU: "GPU-Auslastung",
+            .performanceCores: "Leistungskerne",
+            .efficiencyCores: "Effizienzkerne",
             .aboutText: "Echtzeit-Überwachung von CPU-Auslastung (pro Kern), Speicher aller Arten und freiem Festplattenplatz in einem kleinen schwebenden Fenster.",
         ],
         "fr": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Disque",
             .free: "libre",
@@ -421,10 +439,14 @@ final class L10n: ObservableObject {
             .upToDate: "Vous avez la dernière version.",
             .checkFailed: "Impossible de joindre GitHub pour vérifier les mises à jour.",
             .openRelease: "Ouvrir la page de la version",
+            .showGPU: "Charge GPU",
+            .performanceCores: "Cœurs performance",
+            .efficiencyCores: "Cœurs efficacité",
             .aboutText: "Surveillance en temps réel de la charge CPU (par cœur), de la mémoire sous toutes ses formes et de l'espace disque libre dans une petite fenêtre flottante.",
         ],
         "it": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Disco",
             .free: "liberi",
@@ -495,10 +517,14 @@ final class L10n: ObservableObject {
             .upToDate: "Hai già l'ultima versione.",
             .checkFailed: "Impossibile raggiungere GitHub per controllare gli aggiornamenti.",
             .openRelease: "Apri la pagina della versione",
+            .showGPU: "Carico GPU",
+            .performanceCores: "Core performance",
+            .efficiencyCores: "Core efficienza",
             .aboutText: "Monitoraggio in tempo reale del carico della CPU (per core), della memoria di ogni tipo e dello spazio libero su disco in una piccola finestra flottante.",
         ],
         "pt": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "RAM",
             .disk: "Disco",
             .free: "livres",
@@ -569,10 +595,14 @@ final class L10n: ObservableObject {
             .upToDate: "Você já tem a versão mais recente.",
             .checkFailed: "Não foi possível acessar o GitHub para verificar atualizações.",
             .openRelease: "Abrir a página da versão",
+            .showGPU: "Carga da GPU",
+            .performanceCores: "Núcleos de desempenho",
+            .efficiencyCores: "Núcleos de eficiência",
             .aboutText: "Monitoramento em tempo real da carga da CPU (por núcleo), da memória de todos os tipos e do espaço livre em disco em uma pequena janela flutuante.",
         ],
         "zh": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "内存",
             .disk: "磁盘",
             .free: "可用",
@@ -643,10 +673,14 @@ final class L10n: ObservableObject {
             .upToDate: "已是最新版本。",
             .checkFailed: "无法连接 GitHub 检查更新。",
             .openRelease: "打开发布页面",
+            .showGPU: "GPU 负载",
+            .performanceCores: "性能核心",
+            .efficiencyCores: "能效核心",
             .aboutText: "在小型悬浮窗口中实时显示 CPU 负载（分核心）、各类内存占用和磁盘可用空间。",
         ],
         "ja": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "メモリ",
             .disk: "ディスク",
             .free: "空き",
@@ -717,10 +751,14 @@ final class L10n: ObservableObject {
             .upToDate: "最新バージョンです。",
             .checkFailed: "GitHub に接続できず、アップデートを確認できませんでした。",
             .openRelease: "リリースページを開く",
+            .showGPU: "GPU使用率",
+            .performanceCores: "高性能コア",
+            .efficiencyCores: "高効率コア",
             .aboutText: "CPU使用率（コア別）、あらゆる種類のメモリ、ディスクの空き容量を小さなフローティングウィンドウでリアルタイムに表示します。",
         ],
         "ko": [
             .cpu: "CPU",
+            .gpu: "GPU",
             .memory: "메모리",
             .disk: "디스크",
             .free: "여유",
@@ -791,6 +829,9 @@ final class L10n: ObservableObject {
             .upToDate: "최신 버전을 사용 중입니다.",
             .checkFailed: "GitHub에 연결하지 못해 업데이트를 확인할 수 없습니다.",
             .openRelease: "릴리스 페이지 열기",
+            .showGPU: "GPU 사용량",
+            .performanceCores: "성능 코어",
+            .efficiencyCores: "효율 코어",
             .aboutText: "CPU 사용량(코어별), 모든 종류의 메모리, 디스크 여유 공간을 작은 플로팅 창에서 실시간으로 보여줍니다.",
         ],
     ]

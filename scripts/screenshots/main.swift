@@ -103,9 +103,11 @@ MainActor.assumeIsolated {
     ) {
         let monitor = SystemMonitor()
         monitor.setScreenshotState(cpu: fakeCPU, memory: fakeMemory, volumes: volumes)
+        monitor.setScreenshotGPU(0.62)
         let folders = FolderTracker()
         folders.setScreenshotState(folders: fakeFolders, scans: fakeScans)
         monitor.showCPU = true
+        monitor.showGPU = true
         monitor.showCores = true
         monitor.showMemory = true
         monitor.showMemoryDetails = details

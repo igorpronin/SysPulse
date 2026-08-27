@@ -3,6 +3,35 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.5.0] — 2026-08-27
+
+### Added
+- GPU load, as its own row. It comes from the IORegistry, so it needs no
+  permissions and no `powermetrics`; the row is simply absent on hardware that
+  reports nothing. Apple Silicon publishes a single figure for the whole GPU —
+  there is no per-core breakdown to show, however many GPU cores the chip has.
+- Performance and efficiency cores are told apart: the strip separates the two
+  groups with a gap and names their counts on hover. Which cores are which comes
+  from `hw.perflevel*` at runtime, so a 10 + 4 machine splits correctly without
+  anything hardcoded.
+
+### Changed
+- The per-core strip widens on machines with many cores instead of squeezing the
+  bars. At 14 cores a bar used to come out 4.6 pt wide, and 3 pt in compact mode
+  — a dot rather than a bar. Every row widens together, so the columns stay in
+  line and only the panel grows.
+- Bar width is now derived from the bar rather than the strip, so the division
+  always comes out exact. Left to SwiftUI, the remainder went to a couple of
+  bars and made them half a point wider than their neighbours — one device pixel
+  on a retina screen, and enough to look crooked.
+
+### Not done
+- Neural Engine load. macOS reports it only through `powermetrics`, which needs
+  root, and a proper privileged helper needs a Developer ID signature this app
+  does not have. The remaining route — an admin password prompt plus a permanent
+  root process, for a figure that is power draw rather than utilisation — was
+  not worth it for an app that otherwise asks for nothing.
+
 ## [0.4.0] — 2026-08-27
 
 ### Added
@@ -193,6 +222,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.5.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.5.0
 [0.4.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.4.0
 [0.3.2]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.2
 [0.3.1]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.1

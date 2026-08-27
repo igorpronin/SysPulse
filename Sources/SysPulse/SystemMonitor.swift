@@ -1,12 +1,34 @@
 import AppKit
 import Combine
 import Darwin
+import IOKit
 
 // MARK: - Снимки метрик
 
 struct CPULoad: Equatable, Sendable {
     var perCore: [Double] = []  // 0…1 по каждому логическому ядру
     var total: Double = 0       // средняя загрузка по всем ядрам
+    /// Сколько первых ядер в perCore — энергоэффективные. Проверено опытом:
+    /// host_processor_info отдаёт сначала E-ядра, потом P-ядра (фоновая нагрузка
+    /// садится на ядра 0…, приоритетная — на старшие). Это обратно нумерации в
+    /// sysctl, где perflevel0 — как раз производительные.
+    var efficiencyCores: Int = 0
+
+    var performanceCores: Int { max(0, perCore.count - efficiencyCores) }
+}
+
+/// Раскладка ядер по типам. Читается один раз: на живой машине не меняется.
+enum CoreTopology {
+    static let efficiencyCount: Int = {
+        func value(_ name: String) -> Int {
+            var out: Int32 = 0
+            var size = MemoryLayout<Int32>.stride
+            return sysctlbyname(name, &out, &size, nil, 0) == 0 ? Int(out) : 0
+        }
+        let levels = value("hw.nperflevels")
+        guard levels > 1 else { return 0 }   // одинаковые ядра — делить нечего
+        return value("hw.perflevel1.logicalcpu")
+    }()
 }
 
 enum MemoryPressure: Int, Sendable {
@@ -126,7 +148,8 @@ private struct CPUSampler {
         guard !perCore.isEmpty else { return nil }
         return CPULoad(
             perCore: perCore,
-            total: perCore.reduce(0, +) / Double(perCore.count)
+            total: perCore.reduce(0, +) / Double(perCore.count),
+            efficiencyCores: min(CoreTopology.efficiencyCount, perCore.count)
         )
     }
 }
@@ -178,6 +201,32 @@ private enum MemorySampler {
     }
 }
 
+// Загрузка GPU лежит в IORegistry и читается обычным пользователем — никаких
+// прав и никакого powermetrics. Отдаётся одним числом на устройство: разбивки
+// по ядрам GPU система не публикует.
+private enum GPUSampler {
+    static func sample() -> Double? {
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(
+            kIOMainPortDefault, IOServiceMatching("IOAccelerator"), &iterator
+        ) == KERN_SUCCESS else { return nil }
+        defer { IOObjectRelease(iterator) }
+
+        var best: Double?
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            guard let stats = IORegistryEntryCreateCFProperty(
+                service, "PerformanceStatistics" as CFString, kCFAllocatorDefault, 0
+            )?.takeRetainedValue() as? [String: Any] else { continue }
+            if let used = stats["Device Utilization %"] as? Int {
+                // На машине может быть несколько ускорителей — берём самый занятый.
+                best = max(best ?? 0, min(1, Double(used) / 100))
+            }
+        }
+        return best
+    }
+}
+
 private enum DiskSampler {
     // Только смонтированные локальные тома, видимые пользователю. Свободное место —
     // volumeAvailableCapacityForImportantUsage: это то же число, что показывает Finder
@@ -222,6 +271,8 @@ private enum DiskSampler {
 final class SystemMonitor: ObservableObject {
     @Published private(set) var cpu = CPULoad()
     @Published private(set) var memory = MemoryUsage()
+    /// nil — система не отдаёт загрузку GPU (строка тогда не показывается).
+    @Published private(set) var gpu: Double?
     @Published private(set) var volumes: [VolumeUsage] = []
 
     // MARK: - Состав окошка (всё переживает перезапуск)
@@ -231,6 +282,7 @@ final class SystemMonitor: ObservableObject {
     @Published var showMemory: Bool { didSet { store(showMemory, "ShowMemory") } }
     @Published var showMemoryDetails: Bool { didSet { store(showMemoryDetails, "ShowMemoryDetails") } }
     @Published var showDisks: Bool { didSet { store(showDisks, "ShowDisks") } }
+    @Published var showGPU: Bool { didSet { store(showGPU, "ShowGPU") } }
     @Published var showFolders: Bool { didSet { store(showFolders, "ShowFolders") } }
 
     // Тома, спрятанные пользователем; ключ — путь монтирования.
@@ -270,6 +322,7 @@ final class SystemMonitor: ObservableObject {
     private var started = false
     private var screenshotMode = false
 
+
     init() {
         let ud = UserDefaults.standard
         func flag(_ key: String, default value: Bool) -> Bool {
@@ -280,6 +333,7 @@ final class SystemMonitor: ObservableObject {
         showMemory = flag("ShowMemory", default: true)
         showMemoryDetails = flag("ShowMemoryDetails", default: false)
         showDisks = flag("ShowDisks", default: true)
+        showGPU = flag("ShowGPU", default: true)
         showFolders = flag("ShowFolders", default: true)
         hiddenVolumes = Set(ud.stringArray(forKey: "HiddenVolumes") ?? [])
         // В меню-баре по умолчанию только процессор: строка с тремя метриками
@@ -344,7 +398,12 @@ final class SystemMonitor: ObservableObject {
         if usage != memory {
             memory = usage
         }
+        let load = GPUSampler.sample()
+        if load != gpu {
+            gpu = load
+        }
     }
+
 
     private func refreshVolumes() {
         guard !screenshotMode else { return }
@@ -360,6 +419,8 @@ final class SystemMonitor: ObservableObject {
 
     // Только для оффскрин-рендера скриншотов README (scripts/make-screenshots.sh):
     // подставляет фейковое состояние, реальные данные не участвуют.
+    func setScreenshotGPU(_ value: Double?) { gpu = value }
+
     func setScreenshotState(cpu: CPULoad, memory: MemoryUsage, volumes: [VolumeUsage]) {
         screenshotMode = true
         self.cpu = cpu

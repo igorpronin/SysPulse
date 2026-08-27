@@ -12,6 +12,7 @@ struct MetricsSettingsView: View {
             Toggle(l10n.t(.showCores), isOn: $monitor.showCores)
                 .disabled(!monitor.showCPU)
                 .padding(.leading, 18)
+            Toggle(l10n.t(.showGPU), isOn: $monitor.showGPU)
             Toggle(l10n.t(.showMemory), isOn: $monitor.showMemory)
             Toggle(l10n.t(.showMemoryDetails), isOn: $monitor.showMemoryDetails)
                 .disabled(!monitor.showMemory)
