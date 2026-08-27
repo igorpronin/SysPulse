@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md)
 
-Current version: **0.5.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
+Current version: **0.6.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
 
 <img src="docs/icon.png" width="96" align="right" alt="SysPulse icon">
 
@@ -20,7 +20,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 
 ## Features
 
-- **Floating window** — a small semi-transparent panel that stays on top of all windows, on every desktop, even over fullscreen apps. Drag it anywhere; the position is remembered.
+- **Floating window** — a small semi-transparent panel. Drag it anywhere; the position is remembered. If the display it sits on is unplugged, it moves to the one you are working on rather than staying out of sight.
 - **One menu, two ways in** — right-click the window (or tap it with two fingers) and the same menu the menu bar icon shows drops down right below it. Nothing is reachable from only one of them, and everything stays reachable even when a crowded menu bar hides the icon. The left button is left alone for dragging.
 - **CPU, per core** — one bar per logical core plus the overall percentage, with performance and efficiency cores set apart by a gap and named on hover. On a machine with many cores the strip widens so the bars stay readable instead of thinning to a hairline, and every bar is exactly the same width.
 - **GPU load** — read straight from the system, no permissions and no `powermetrics`. Apple Silicon reports one figure for the whole GPU, so there is no per-core breakdown to show.
@@ -36,7 +36,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Opacity slider** — one slider in UI settings drives the window look from fully transparent to solid black; the text color adapts along the way so it always stays readable.
 - **Contrast mode** — a toggle in UI settings inverts the color scheme: the background goes from transparent to white instead of black, and the text adapts the opposite way.
 - **Left or right alignment** — right alignment mirrors every row (value, bar, label) and keeps the window's right edge fixed, growing leftward. Handy when the window sits near the right screen edge.
-- **Always on top** is a separate toggle: with it off, the window orders like a regular window and can be covered by others.
+- **Always on top** decides two things at once, because they belong together. On: the panel floats above everything and appears on every desktop of its display, fullscreen apps included. Off: it orders like an ordinary window, can be covered, and stays on the single desktop where you left it — a window that hides under others has no business following you across desktops.
 - **Everything is remembered** — chosen metrics, hidden volumes, window position, compact mode, alignment, opacity and visibility all survive app restarts.
 - **Launch at login** — toggle in the menu (uses the system `SMAppService`).
 - **Update check** — once a day SysPulse asks GitHub whether a newer release is out. If one is, the top line of the menu says so and opens the release page; it never downloads or replaces anything by itself. Check by hand any time, or turn the automatic check off entirely.

@@ -3,6 +3,21 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.6.0] — 2026-08-27
+
+### Changed
+- "Always on top" now governs desktops as well as stacking order. On, the panel
+  appears on every desktop of its display, as before. Off, it stays on the one
+  desktop where it was left — previously it followed you everywhere while still
+  hiding under other windows, which served no one.
+
+### Fixed
+- Unplugging the display the panel sits on used to leave it stranded outside the
+  visible area: nothing in the app watched for a change of screen configuration.
+  It now moves to the display you are working on — the one holding the frontmost
+  window. There is no setting for this; a window off the edge of the world is
+  never what anyone wanted.
+
 ## [0.5.0] — 2026-08-27
 
 ### Added
@@ -222,6 +237,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.6.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.6.0
 [0.5.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.5.0
 [0.4.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.4.0
 [0.3.2]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.2

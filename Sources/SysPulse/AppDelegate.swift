@@ -100,7 +100,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        panel.level = panelOnTop ? .floating : .normal
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -108,7 +107,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Полоска памяти определяет сегмент под курсором по mouseMoved —
         // окно должно эти события принимать.
         panel.acceptsMouseMovedEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
@@ -130,6 +128,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onRightClick = { [weak self] in self?.showMainMenu() }
 
         self.panel = panel
+        applyPanelBehavior()
+
+        // Монитор могли отключить или переставить — панель не должна остаться
+        // за пределами видимой области.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.screensChanged() }
+        }
         clampPanelToScreen()
         lastPanelFrame = panel.frame
     }
@@ -212,9 +220,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func setPanelOnTop(_ onTop: Bool) {
         panelOnTop = onTop
-        panel.level = onTop ? .floating : .normal
+        applyPanelBehavior()
         if panelVisible { panel.orderFrontRegardless() }
         onTopMenuItem?.state = onTop ? .on : .off
+    }
+
+    /// Уровень и присутствие на рабочих столах — две стороны одного режима.
+    /// Поверх всех окон: панель висит над всем и видна на ВСЕХ рабочих столах
+    /// своего монитора. Обычный режим: панель ведёт себя как всякое окно —
+    /// её перекрывают другие, и живёт она на ОДНОМ рабочем столе, том, где её
+    /// оставили. Иначе выходила бы полумера: окно, которое прячется под другими,
+    /// но при этом преследует пользователя по всем десктопам.
+    private func applyPanelBehavior() {
+        panel.level = panelOnTop ? .floating : .normal
+        panel.collectionBehavior = panelOnTop
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
+            : []
+    }
+
+    /// Экран пропал — панель переезжает на активный монитор. Настройки для
+    /// этого нет намеренно: окно за пределами экрана бесполезно всегда.
+    private func screensChanged() {
+        guard panel != nil else { return }
+        if panel.screen == nil {
+            moveToActiveScreen()
+        } else {
+            clampPanelToScreen()
+        }
+    }
+
+    private func moveToActiveScreen() {
+        guard let screen = activeScreen() else { return }
+        let visible = screen.visibleFrame
+        panel.setFrameOrigin(NSPoint(
+            x: visible.maxX - panel.frame.width - 16,
+            y: visible.maxY - panel.frame.height - 16
+        ))
+        lastPanelFrame = panel.frame
+        if panelVisible { panel.orderFrontRegardless() }
+    }
+
+    /// Монитор, на котором сейчас работают: экран переднего окна активного
+    /// приложения. Геометрия чужих окон видна в списке окон без разрешений —
+    /// содержимое там недоступно, только рамки.
+    private func activeScreen() -> NSScreen? {
+        guard let front = NSWorkspace.shared.frontmostApplication,
+              let main = NSScreen.screens.first(where: { $0.frame.origin == .zero })
+        else { return NSScreen.main }
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        let bounds = windows.first {
+            ($0[kCGWindowOwnerPID as String] as? pid_t) == front.processIdentifier
+                && ($0[kCGWindowLayer as String] as? Int) == 0
+        }?[kCGWindowBounds as String] as? [String: CGFloat]
+        guard let bounds,
+              let x = bounds["X"], let y = bounds["Y"],
+              let width = bounds["Width"], let height = bounds["Height"]
+        else { return NSScreen.main }
+        // Список окон считает координаты сверху вниз, AppKit — снизу вверх.
+        let center = NSPoint(
+            x: x + width / 2,
+            y: main.frame.maxY - (y + height / 2)
+        )
+        return NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
     }
 
     var isPanelOnTop: Bool { panelOnTop }
