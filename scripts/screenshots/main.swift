@@ -25,6 +25,26 @@ MainActor.assumeIsolated {
         swapTotal: 2 * gb,
         pressureRaw: MemoryPressure.normal.rawValue
     )
+    let fakeFolders = [
+        TrackedFolder(path: "/Users/you/Projects", alias: "", interval: .tenMinutes),
+        TrackedFolder(path: "/Users/you/Movies", alias: "Media", interval: .hour),
+    ]
+    let fakeScans: [String: FolderScan] = [
+        fakeFolders[0].id.uuidString: FolderScan(
+            size: 24_500_000_000,
+            children: [
+                .init(name: "node_modules", size: 9_800_000_000),
+                .init(name: "archive", size: 6_100_000_000),
+                .init(name: "build", size: 3_400_000_000),
+            ],
+            scannedAt: Date(timeIntervalSince1970: 1_770_000_000)
+        ),
+        fakeFolders[1].id.uuidString: FolderScan(
+            size: 112_000_000_000,
+            children: [.init(name: "Raw", size: 88_000_000_000)],
+            scannedAt: Date(timeIntervalSince1970: 1_770_000_000)
+        ),
+    ]
     let fakeVolumes = [
         VolumeUsage(id: "/", name: "Macintosh HD", isRoot: true, total: 994_662_584_320, free: 312_400_000_000),
         VolumeUsage(id: "/Volumes/Backup", name: "Backup", isRoot: false, total: 2_000_000_000_000, free: 640_000_000_000),
@@ -83,16 +103,19 @@ MainActor.assumeIsolated {
     ) {
         let monitor = SystemMonitor()
         monitor.setScreenshotState(cpu: fakeCPU, memory: fakeMemory, volumes: volumes)
+        let folders = FolderTracker()
+        folders.setScreenshotState(folders: fakeFolders, scans: fakeScans)
         monitor.showCPU = true
         monitor.showCores = true
         monitor.showMemory = true
         monitor.showMemoryDetails = details
         monitor.showDisks = true
+        monitor.showFolders = true
         monitor.compact = compact
         monitor.contrast = contrast
         monitor.opacity = opacity
         monitor.alignRight = false
-        render(ContentView(monitor: monitor), out: out)
+        render(ContentView(monitor: monitor, folders: folders), out: out)
     }
 
     renderPanel(out: "screenshot-normal.png")

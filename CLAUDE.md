@@ -74,6 +74,78 @@ must stay that way.
 - Units follow macOS: memory in binary GB, disks in decimal GB (`Fmt.mem` vs
   `Fmt.disk`). Do not unify them.
 
+## Folder tracking
+
+`Folders.swift` is separate from `SystemMonitor` on purpose: the three metrics
+above are instant counters, a folder size is a walk of the file tree. One pass
+of `FolderScanner.scan` produces both the total and each first-level
+subdirectory's share, so the five largest come free; verified against `du -sk`
+to the byte. Walks run one at a time on a utility queue — parallel walks only
+fight each other over the disk — and a folder already being scanned is never
+queued again, so a slow walk cannot pile up behind a fast interval. Budget
+roughly 25 s for 375 GB when choosing defaults.
+
+Results are cached to UserDefaults with their timestamp: a size is on screen at
+launch without waiting, and the next scan is due from when the last one really
+ran, not from app start. `FolderTracker.frozen` (screenshot mode) blocks both
+scanning and saving.
+
+NOTE: this is the one part of the app that can trigger a macOS privacy prompt —
+only when the user themselves adds a protected folder (Desktop, Documents,
+Downloads). Denied access surfaces as `noAccess`, never as a crash or a zero.
+The three core metrics still need no permissions and must stay that way.
+
+## Hover tooltips
+
+Do NOT use `.help(_:)` or `NSView.toolTip` on the panel. `NSToolTipManager` only
+shows system tooltips for the *active* application, and SysPulse is an
+`LSUIElement` agent whose panel never becomes key — those tooltips are silently
+dead. `Tooltip.swift` replaces them: hover is caught by an `NSTrackingArea` with
+`.activeAlways` (SwiftUI's own `.onHover` defaults to key-window-only tracking),
+and the text is drawn in an app-owned `NSPanel` at status-bar level with
+`ignoresMouseEvents` on — without that the tip covers the segment, the tracking
+area gets `mouseExited`, and the tip flickers away. Attach one with `.hoverTip(_:)`.
+
+A hover region lives where the view is LAID OUT, not where it is drawn: never
+position something with `.offset` and expect `.hoverTip` on it to work (the
+memory segments were built that way once and all four regions ended up stacked
+at the left edge). Two further rules came out of that same bug, both learned the
+hard way:
+
+- Do NOT use `.inVisibleRect` on the tracking area. It makes AppKit measure the
+  *visible* part of the view, and inside a SwiftUI container clipped to a capsule
+  that measurement is wrong for elements near the ends — regions drift or vanish.
+  Set the rect from `bounds` explicitly and refresh it in `setFrameSize`, since
+  the readings resize these views every second.
+- For a bar made of several parts, use ONE region across the whole bar and work
+  out the part from the pointer's x fraction (`.hoverTip(at:)`), reusing the same
+  arithmetic that draws it. Per-segment overlays a few pixels wide are fragile,
+  and the drawn boundary and the hover boundary can then never disagree.
+
+Verify a change here by dumping each view's `trackingAreas`: `area.rect` must
+equal `bounds`, and the count must match the number of regions you intended.
+
+Two AppKit traps live in that file, both already fixed: sizing the tip with
+`NSHostingView.fittingSize` under a width limit returns nonsense (a 992 px tall
+window), so the content is plain AppKit; and `contentView`'s frame must be read
+BEFORE it is assigned to the panel, because AppKit stretches it to the window.
+
+## Colors
+
+Two different jobs, two different scales — do not mix them up. CPU and disk bars
+encode a *magnitude*, so they use the green→amber→red ramp in `loadColor`. The
+memory bar encodes *which kind of memory*, so it uses the categorical `Palette`
+(blue / orange / violet, plus a fixed neutral gray for the file cache, which is
+reclaimable and must not read as "used"). Each has a light step for Contrast
+mode and a dark step for the normal panel.
+
+Those steps are not free choices. They were validated with the `dataviz`
+skill's `validate_palette.js` against both surfaces: worst adjacent colour-blind
+ΔE 24.7 light / 26.0 dark (threshold 8) and contrast ≥ 3:1. Blue+aqua and
+darker greens were tried and rejected — they fail either CVD separation against
+orange or contrast on the light surface. If you change a hue, re-run the
+validator for BOTH modes before committing.
+
 ## Panel layout
 
 Column widths (label / bar / value) are fixed constants in `ContentView`, and
@@ -83,9 +155,18 @@ Value text is `.monospacedDigit()` for the same reason. When the window's height
 does change (a section toggled, a volume mounted), `windowDidResize` keeps the
 top edge — and with right alignment the right edge — pinned in place.
 
-A click on the panel pops up `statusItem.menu` itself (not a copy), so the
-`menuWillOpen` delegate refreshes the checkmarks the same way for both entry
-points — the panel must stay usable when a full menu bar hides the status icon.
+The app has exactly ONE menu. A right-click on the panel pops up
+`statusItem.menu` itself (not a copy), so the `menuWillOpen` delegate refreshes
+the checkmarks the same way for both entry points — the panel must stay usable
+when a full menu bar hides the status icon. Do not give the panel its own
+context menu: two menus on one window drifted apart and confused the owner.
+Anything new goes into `rebuildMenu()` — but which metrics the panel shows lives
+ONLY in the Metrics settings window; a "Metrics" submenu duplicating it existed
+briefly and the owner removed it. Checkmark items bound to a `Bool` on
+`SystemMonitor` are built with `flagItem(_:_:)`, which registers them in
+`flagItems` so one action and one refresh loop serve them all. The left button
+is deliberately untouched — the panel is dragged with it via
+`isMovableByWindowBackground`.
 The popup point is in the content view's coordinates, and that view is an
 `NSHostingView`, which is flipped: "below the panel" is `bounds.maxY + 6`, not
 `-6`. Getting this wrong makes the menu cover the panel instead of dropping

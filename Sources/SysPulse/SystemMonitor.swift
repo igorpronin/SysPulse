@@ -53,9 +53,14 @@ enum Fmt {
     static func mem(_ bytes: UInt64) -> String { memNumber(bytes) + " GB" }
 
     /// Объём дисков macOS (Finder, «Об этом Mac») считает в десятичных гигабайтах.
+    /// Мелкие значения переводим в МБ и КБ: у папок и подпапок «0 GB» сообщает
+    /// куда меньше, чем «34 MB».
     static func disk(_ bytes: UInt64) -> String {
         let gb = Double(bytes) / 1_000_000_000
-        return gb >= 1000 ? number(gb / 1000) + " TB" : number(gb) + " GB"
+        if gb >= 1000 { return number(gb / 1000) + " TB" }
+        if gb >= 1 { return number(gb) + " GB" }
+        let mb = Double(bytes) / 1_000_000
+        return mb >= 1 ? number(mb) + " MB" : number(Double(bytes) / 1000) + " KB"
     }
 
     static func percent(_ fraction: Double) -> String {
@@ -226,6 +231,7 @@ final class SystemMonitor: ObservableObject {
     @Published var showMemory: Bool { didSet { store(showMemory, "ShowMemory") } }
     @Published var showMemoryDetails: Bool { didSet { store(showMemoryDetails, "ShowMemoryDetails") } }
     @Published var showDisks: Bool { didSet { store(showDisks, "ShowDisks") } }
+    @Published var showFolders: Bool { didSet { store(showFolders, "ShowFolders") } }
 
     // Тома, спрятанные пользователем; ключ — путь монтирования.
     @Published private(set) var hiddenVolumes: Set<String> {
@@ -274,6 +280,7 @@ final class SystemMonitor: ObservableObject {
         showMemory = flag("ShowMemory", default: true)
         showMemoryDetails = flag("ShowMemoryDetails", default: false)
         showDisks = flag("ShowDisks", default: true)
+        showFolders = flag("ShowFolders", default: true)
         hiddenVolumes = Set(ud.stringArray(forKey: "HiddenVolumes") ?? [])
         // В меню-баре по умолчанию только процессор: строка с тремя метриками
         // широкая, и на забитом меню-баре macOS просто прячет значок.

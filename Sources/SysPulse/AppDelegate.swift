@@ -8,25 +8,18 @@ let projectFolder = "/Users/proninigor/Projects/macos-sys-monitor"
 #endif
 
 final class FloatingPanel: NSPanel {
-    var onClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
 
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    private var originAtMouseDown: NSPoint = .zero
-
-    // Клик без перетаскивания — главное меню; драг за фон двигает окно.
-    override func mouseDown(with event: NSEvent) {
-        originAtMouseDown = frame.origin
-        super.mouseDown(with: event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if event.clickCount == 1, frame.origin == originAtMouseDown {
-            onClick?()
-            return
-        }
-        super.mouseUp(with: event)
+    // ЛКМ не перехватываем вообще: окно таскается за фон штатным AppKit-механизмом
+    // (isMovableByWindowBackground). ПКМ — он же тап двумя пальцами — открывает
+    // то самое единственное меню приложения; своего контекстного меню у окошка
+    // нет, два разных меню на одном окошке только путали. Событие доходит сюда по
+    // цепочке ответчиков, потому что у NSHostingView внутри не задано своё menu.
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
     }
 }
 
@@ -37,14 +30,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelMenuItem: NSMenuItem!
     private var onTopMenuItem: NSMenuItem!
     private var loginMenuItem: NSMenuItem!
-    private var compactMenuItem: NSMenuItem!
+    // Пункты-галочки, привязанные к Bool-настройкам монитора: метрики, состав
+    // строки в меню-баре, компактный режим. Один массив — одно действие на всех
+    // и одно место, где состояния освежаются перед показом меню.
+    private var flagItems: [(item: NSMenuItem, key: ReferenceWritableKeyPath<SystemMonitor, Bool>)] = []
     private var alignLeftMenuItem: NSMenuItem!
     private var alignRightMenuItem: NSMenuItem!
-    private var menuBarItems: [(item: NSMenuItem, key: ReferenceWritableKeyPath<SystemMonitor, Bool>)] = []
     private var metricsSettingsWindow: NSWindow?
+    private var foldersSettingsWindow: NSWindow?
     private var uiSettingsWindow: NSWindow?
     private var lastPanelFrame: NSRect = .zero
     private let monitor = SystemMonitor()
+    private let folders = FolderTracker()
     private var cancellables = Set<AnyCancellable>()
 
     private var panelVisible: Bool {
@@ -85,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.orderFrontRegardless()
         }
         monitor.start()
+        folders.start()
         updateStatusItem()
     }
 
@@ -102,12 +100,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.isMovableByWindowBackground = true
+        // Полоска памяти определяет сегмент под курсором по mouseMoved —
+        // окно должно эти события принимать.
+        panel.acceptsMouseMovedEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
 
-        let host = NSHostingController(rootView: ContentView(monitor: monitor))
+        let host = NSHostingController(rootView: ContentView(monitor: monitor, folders: folders))
         host.sizingOptions = [.preferredContentSize]
         panel.contentViewController = host
         panel.setContentSize(host.view.fittingSize)
@@ -121,14 +122,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         panel.setFrameAutosaveName("SysPulsePanel")
         panel.delegate = self
-        panel.onClick = { [weak self] in self?.showMainMenu() }
+        panel.onRightClick = { [weak self] in self?.showMainMenu() }
 
         self.panel = panel
         clampPanelToScreen()
         lastPanelFrame = panel.frame
     }
 
-    /// Клик по окошку — то же меню, что и у значка в меню-баре, прямо под окошком.
+    /// ПКМ по окошку — то же меню, что и у значка в меню-баре, прямо под окошком.
     /// Меню-бар бывает забит, и тогда macOS прячет значок: окошко остаётся
     /// единственным входом в настройки. Меню одно и то же (`statusItem.menu`),
     /// поэтому menuWillOpen освежает галочки одинаково в обоих случаях.
@@ -159,6 +160,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         metricsSettingsWindow?.makeKeyAndOrderFront(nil)
     }
 
+    func openFoldersSettings() {
+        if foldersSettingsWindow == nil {
+            let host = NSHostingController(rootView: FoldersSettingsView(folders: folders))
+            let window = NSWindow(contentViewController: host)
+            window.title = L10n.shared.t(.foldersSettings).replacingOccurrences(of: "…", with: "")
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            foldersSettingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        foldersSettingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
     func openUISettings() {
         if uiSettingsWindow == nil {
             let host = NSHostingController(rootView: UISettingsView(monitor: monitor))
@@ -184,6 +199,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
+            // Панель ушла из-под курсора — mouseExited уже не придёт.
+            TooltipPanel.shared.cancel()
         }
         panelMenuItem?.state = visible ? .on : .off
     }
@@ -216,10 +233,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Меню в меню-баре
 
+    /// Пункт-галочка поверх Bool-настройки монитора: сам ставит текущее состояние
+    /// и регистрируется в flagItems, чтобы одно действие обслуживало их все.
+    private func flagItem(
+        _ title: String, _ key: ReferenceWritableKeyPath<SystemMonitor, Bool>
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: #selector(toggleFlag(_:)), keyEquivalent: "")
+        item.target = self
+        item.state = monitor[keyPath: key] ? .on : .off
+        flagItems.append((item, key))
+        return item
+    }
+
     private func rebuildMenu() {
         let l10n = L10n.shared
         let menu = NSMenu()
         menu.autoenablesItems = false
+        flagItems = []
 
         let activityItem = NSMenuItem(title: l10n.t(.activityMonitor), action: #selector(openActivityMonitorAction), keyEquivalent: "")
         activityItem.target = self
@@ -231,11 +261,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         metricsSettingsItem.target = self
         menu.addItem(metricsSettingsItem)
 
+        let foldersItem = NSMenuItem(title: l10n.t(.foldersSettings), action: #selector(openFoldersSettingsAction), keyEquivalent: "")
+        foldersItem.target = self
+        menu.addItem(foldersItem)
+
         let uiSettingsItem = NSMenuItem(title: l10n.t(.uiSettings), action: #selector(openUISettingsAction), keyEquivalent: "")
         uiSettingsItem.target = self
         menu.addItem(uiSettingsItem)
 
-        panelMenuItem = NSMenuItem(title: l10n.t(.showWindow), action: #selector(togglePanel), keyEquivalent: "")
+        panelMenuItem = NSMenuItem(title: l10n.t(.floatingPanel), action: #selector(togglePanel), keyEquivalent: "")
         panelMenuItem.target = self
         panelMenuItem.state = panelVisible ? .on : .off
         menu.addItem(panelMenuItem)
@@ -245,10 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         onTopMenuItem.state = panelOnTop ? .on : .off
         menu.addItem(onTopMenuItem)
 
-        compactMenuItem = NSMenuItem(title: l10n.t(.compactWindow), action: #selector(toggleCompact), keyEquivalent: "")
-        compactMenuItem.target = self
-        compactMenuItem.state = monitor.compact ? .on : .off
-        menu.addItem(compactMenuItem)
+        menu.addItem(flagItem(l10n.t(.compactPanel), \SystemMonitor.compact))
 
         let alignItem = NSMenuItem(title: l10n.t(.alignMenu), action: nil, keyEquivalent: "")
         let alignMenu = NSMenu()
@@ -268,17 +299,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBarItem = NSMenuItem(title: l10n.t(.menuBarMenu), action: nil, keyEquivalent: "")
         let menuBarMenu = NSMenu()
         menuBarMenu.autoenablesItems = false
-        menuBarItems = []
         for (title, keyPath) in [
             (l10n.t(.cpu), \SystemMonitor.menuBarCPU),
             (l10n.t(.memory), \SystemMonitor.menuBarMemory),
             (l10n.t(.disk), \SystemMonitor.menuBarDisk),
         ] {
-            let item = NSMenuItem(title: title, action: #selector(toggleMenuBarMetric(_:)), keyEquivalent: "")
-            item.target = self
-            item.state = monitor[keyPath: keyPath] ? .on : .off
-            menuBarMenu.addItem(item)
-            menuBarItems.append((item, keyPath))
+            menuBarMenu.addItem(flagItem(title, keyPath))
         }
         menuBarItem.submenu = menuBarMenu
         menu.addItem(menuBarItem)
@@ -329,17 +355,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if monitor.menuBarDisk, let volume = monitor.visibleVolumes.first ?? monitor.volumes.first {
             parts.append("\(l10n.t(.disk)) \(Fmt.disk(volume.free))")
         }
-        // Моноширинные цифры: без них значок меняет ширину на каждом обновлении
-        // и утягивает за собой соседние значки меню-бара.
-        statusItem?.button?.attributedTitle = NSAttributedString(
-            string: parts.isEmpty ? AppInfo.name : parts.joined(separator: " · "),
-            attributes: [
-                .font: NSFont.monospacedDigitSystemFont(
-                    ofSize: NSFont.systemFontSize, weight: .regular
+        guard let button = statusItem?.button else { return }
+        if parts.isEmpty {
+            // Все метрики в меню-баре выключены — показываем иконку, а не имя
+            // приложения: значок должен остаться на месте, иначе при скрытой
+            // панели приложение будет нечем открыть. Столбики перекликаются с
+            // иконкой приложения, template — сам подстраивается под тему.
+            button.attributedTitle = NSAttributedString(string: "")
+            if button.image == nil {
+                let image = NSImage(
+                    systemSymbolName: "chart.bar.fill", accessibilityDescription: AppInfo.name
                 )
-            ]
-        )
-        statusItem?.button?.toolTip = tooltip
+                image?.isTemplate = true
+                button.image = image
+            }
+        } else {
+            button.image = nil
+            // Моноширинные цифры: без них значок меняет ширину на каждом обновлении
+            // и утягивает за собой соседние значки меню-бара.
+            button.attributedTitle = NSAttributedString(
+                string: parts.joined(separator: " · "),
+                attributes: [
+                    .font: NSFont.monospacedDigitSystemFont(
+                        ofSize: NSFont.systemFontSize, weight: .regular
+                    )
+                ]
+            )
+        }
+        button.toolTip = tooltip
     }
 
     // Полная сводка — в подсказке значка, даже если в меню-баре включена одна метрика.
@@ -371,13 +414,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func togglePanel() { setPanelVisible(!panelVisible) }
 
-    @objc private func toggleCompact() {
-        monitor.compact.toggle()
-        compactMenuItem?.state = monitor.compact ? .on : .off
-    }
-
-    @objc private func toggleMenuBarMetric(_ sender: NSMenuItem) {
-        guard let entry = menuBarItems.first(where: { $0.item === sender }) else { return }
+    @objc private func toggleFlag(_ sender: NSMenuItem) {
+        guard let entry = flagItems.first(where: { $0.item === sender }) else { return }
         monitor[keyPath: entry.key].toggle()
         sender.state = monitor[keyPath: entry.key] ? .on : .off
         updateStatusItem()
@@ -394,6 +432,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openMetricsSettingsAction() { openMetricsSettings() }
+
+    @objc private func openFoldersSettingsAction() { openFoldersSettings() }
 
     @objc private func openUISettingsAction() { openUISettings() }
 
@@ -474,16 +514,20 @@ extension AppDelegate: NSWindowDelegate {
 }
 
 extension AppDelegate: NSMenuDelegate {
-    // Состояния могли поменять извне (контекстное меню окошка, Системные настройки).
+    // Состояния могли поменять извне (Системные настройки, другая копия меню).
     func menuWillOpen(_ menu: NSMenu) {
+        TooltipPanel.shared.isSuppressed = true
         loginMenuItem?.state = SMAppService.mainApp.status == .enabled ? .on : .off
         onTopMenuItem?.state = panelOnTop ? .on : .off
         panelMenuItem?.state = panelVisible ? .on : .off
-        compactMenuItem?.state = monitor.compact ? .on : .off
         alignLeftMenuItem?.state = monitor.alignRight ? .off : .on
         alignRightMenuItem?.state = monitor.alignRight ? .on : .off
-        for entry in menuBarItems {
+        for entry in flagItems {
             entry.item.state = monitor[keyPath: entry.key] ? .on : .off
         }
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        TooltipPanel.shared.isSuppressed = false
     }
 }

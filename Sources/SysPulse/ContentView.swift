@@ -1,8 +1,42 @@
 import SwiftUI
 import AppKit
 
+struct MemorySegment {
+    let name: String
+    let bytes: UInt64
+    let color: Color
+    let help: L10nKey
+}
+
+/// Категориальная палитра для видов памяти. Шаги подобраны под две подложки —
+/// тёмную (обычный режим) и светлую (Contrast), — и проверены валидатором:
+/// худшая соседняя пара по дальтонизму ΔE 24.7 на светлой и 26.0 на тёмной при
+/// пороге 8, контраст к подложке ≥ 3:1 в обоих режимах. Менять на глаз нельзя:
+/// синий с бирюзовым, например, эту проверку не проходят.
+enum Palette {
+    static func app(contrast: Bool) -> Color { contrast ? hex(0x2A78D6) : hex(0x3987E5) }
+    static func wired(contrast: Bool) -> Color { contrast ? hex(0xEB6834) : hex(0xD95926) }
+    static func compressed(contrast: Bool) -> Color { contrast ? hex(0x4A3AA7) : hex(0x9085E9) }
+
+    /// Файловый кэш — не «свой» цвет в шкале, а нейтральный: он сообщает
+    /// «это не занятая память». Тон фиксированный, одинаково приглушённый и на
+    /// тёмной подложке, и на светлой; привязать его к цвету текста нельзя —
+    /// в Contrast он стал бы темнее самих категорий и перетянул бы внимание.
+    static let cached = hex(0x8E8E88)
+
+    private static func hex(_ value: UInt32) -> Color {
+        Color(
+            .sRGB,
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var monitor: SystemMonitor
+    @ObservedObject var folders: FolderTracker
     @ObservedObject var l10n = L10n.shared
 
     var body: some View {
@@ -14,47 +48,8 @@ struct ContentView: View {
                 Color(white: monitor.contrast ? 1 : 0).opacity(monitor.opacity),
                 in: RoundedRectangle(cornerRadius: monitor.compact ? 7 : 9, style: .continuous)
             )
-            .contextMenu {
-                Button(l10n.t(.metricsSettings)) {
-                    (NSApp.delegate as? AppDelegate)?.openMetricsSettings()
-                }
-                Button(l10n.t(.uiSettings)) {
-                    (NSApp.delegate as? AppDelegate)?.openUISettings()
-                }
-                Divider()
-                Toggle(l10n.t(.showCPU), isOn: $monitor.showCPU)
-                Toggle(l10n.t(.showCores), isOn: $monitor.showCores)
-                Toggle(l10n.t(.showMemory), isOn: $monitor.showMemory)
-                Toggle(l10n.t(.showMemoryDetails), isOn: $monitor.showMemoryDetails)
-                Toggle(l10n.t(.showDisks), isOn: $monitor.showDisks)
-                Divider()
-                Toggle(l10n.t(.compactWindow), isOn: $monitor.compact)
-                Menu(l10n.t(.alignMenu)) {
-                    Toggle(l10n.t(.alignLeft), isOn: Binding(
-                        get: { !monitor.alignRight },
-                        set: { _ in monitor.alignRight = false }
-                    ))
-                    Toggle(l10n.t(.alignRight), isOn: Binding(
-                        get: { monitor.alignRight },
-                        set: { _ in monitor.alignRight = true }
-                    ))
-                }
-                Toggle(l10n.t(.alwaysOnTop), isOn: Binding(
-                    get: { (NSApp.delegate as? AppDelegate)?.isPanelOnTop ?? true },
-                    set: { (NSApp.delegate as? AppDelegate)?.setPanelOnTop($0) }
-                ))
-                Button(l10n.t(.hideWindow)) {
-                    (NSApp.delegate as? AppDelegate)?.setPanelVisible(false)
-                }
-                Button(l10n.t(.activityMonitor)) {
-                    (NSApp.delegate as? AppDelegate)?.openActivityMonitor()
-                }
-                Button(l10n.t(.about)) {
-                    (NSApp.delegate as? AppDelegate)?.showAbout()
-                }
-                Divider()
-                Button(l10n.t(.quit)) { NSApp.terminate(nil) }
-            }
+            // Своего контекстного меню у окошка нет: и левый, и правый клик
+            // открывают одно и то же меню из меню-бара (см. FloatingPanel).
     }
 
     // MARK: - Цвета под прозрачность
@@ -86,7 +81,12 @@ struct ContentView: View {
         )
     }
 
-    private var trackColor: Color { textColor.opacity(0.18) }
+    /// Дорожка — это и есть «свободно»: у памяти хвост после сегментов, у дисков
+    /// и ЦП — незалитая часть. Поэтому она не фон, а полноценное показание, и
+    /// светлее, чем взял бы обычный фон: иначе пустой хвост сливается с панелью
+    /// и полоска выглядит короче, чем есть. Обводку по контуру пробовали —
+    /// читаемость та же, а вид грязнее; владелец её снял.
+    private var trackColor: Color { textColor.opacity(0.26) }
 
     // MARK: - Размеры
 
@@ -109,6 +109,7 @@ struct ContentView: View {
     private var isEmpty: Bool {
         !monitor.showCPU && !monitor.showMemory
             && !(monitor.showDisks && !monitor.visibleVolumes.isEmpty)
+            && !(monitor.showFolders && !folders.folders.isEmpty)
     }
 
     @ViewBuilder
@@ -124,6 +125,9 @@ struct ContentView: View {
                     volumeRow(volume)
                 }
             }
+            if monitor.showFolders, !folders.folders.isEmpty {
+                foldersBlock
+            }
             // Всё выключено — окошко не должно схлопнуться в точку.
             if isEmpty {
                 Text(AppInfo.name)
@@ -137,14 +141,18 @@ struct ContentView: View {
 
     // При правом выравнивании строка зеркалится: метка уезжает вправо, значение влево.
     private func row<Bar: View>(
-        label: String, dimLabel: Bool = false, value: String, @ViewBuilder bar: () -> Bar
+        label: String, dimLabel: Bool = false, labelTip: String? = nil,
+        value: String, @ViewBuilder bar: () -> Bar
     ) -> some View {
+        // Подсказка висит на метке, а не на всей строке: у полоски памяти свои
+        // подсказки на сегментах, и вложенные области наведения спорили бы.
         let labelText = Text(label)
             .font(labelFont)
             .foregroundStyle(textColor.opacity(dimLabel ? 0.75 : 1))
             .lineLimit(1)
             .truncationMode(.tail)
             .frame(width: labelWidth, alignment: monitor.alignRight ? .trailing : .leading)
+            .hoverTip(labelTip)
         let valueText = Text(value)
             .font(valueFont)
             .foregroundStyle(textColor)
@@ -177,31 +185,160 @@ struct ContentView: View {
     private var memoryRow: some View {
         let memory = monitor.memory
         let value = "\(Fmt.memNumber(memory.used)) / \(Fmt.mem(memory.total))"
-        return row(label: l10n.t(.memory), value: value) { memoryBar }
-            .overlay(alignment: monitor.alignRight ? .trailing : .leading) {
-                // Точка предупреждения о нехватке памяти: молча, но заметно.
-                if memory.pressure != .normal {
-                    Circle()
-                        .fill(memory.pressure == .critical ? Color.red : Color.orange)
-                        .frame(width: 4, height: 4)
-                        .offset(x: monitor.alignRight ? 3 : -3)
-                }
-            }
+        // Нагрузка на память живёт в подсказке метки: отдельная точка сбоку
+        // висела вне колонок и читалась как соринка на экране.
+        let tip = "\(l10n.t(.pressure)): \(pressureTitle)\n\n\(l10n.t(.helpPressure))"
+        return row(label: l10n.t(.memory), labelTip: tip, value: value) { memoryBar }
     }
 
     private func volumeRow(_ volume: VolumeUsage) -> some View {
-        row(
+        // В строке видно свободное место, поэтому в подсказке — занятое, вместе
+        // с полным именем тома: в узкой колонке метка обрезается.
+        let tip = """
+            \(volume.name)
+            \(l10n.t(.used)): \(Fmt.disk(volume.used)) / \(Fmt.disk(volume.total)) \
+            (\(Fmt.percent(volume.usedFraction)))
+            \(l10n.t(.freeMemory)): \(Fmt.disk(volume.free))
+            """
+        return row(
             label: volume.isRoot ? l10n.t(.disk) : volume.name,
             dimLabel: !volume.isRoot,
             value: "\(Fmt.disk(volume.free)) \(l10n.t(.free))"
         ) {
-            bar(fraction: volume.usedFraction)
+            bar(fraction: volume.usedFraction, tip: tip)
         }
     }
 
+    /// Папки — отдельный блок: тонкая черта, заголовок с общей суммой и кнопкой
+    /// «обновить все», под ним сами папки более мелким шрифтом, как разбивка
+    /// памяти. Полоски у папок нет намеренно: у размера папки нет своего
+    /// «всего», а доля от тома почти всегда вырождается в точку.
+    private var foldersBlock: some View {
+        VStack(alignment: .leading, spacing: monitor.compact ? 2 : 3) {
+            Rectangle()
+                .fill(textColor.opacity(0.15))
+                .frame(width: rowWidth, height: 1)
+                .padding(.top, monitor.compact ? 1 : 2)
+            foldersHeader
+            ForEach(folders.folders) { folder in
+                folderRow(folder)
+            }
+        }
+    }
+
+    private var foldersHeader: some View {
+        let title = Text(l10n.t(.showFolders))
+            .font(labelFont)
+            .foregroundStyle(textColor)
+        let total = Text(folders.folders.isEmpty ? "—" : Fmt.disk(folders.totalSize))
+            .font(valueFont)
+            .foregroundStyle(textColor)
+        let button = rescanButton(busy: folders.isScanningAny) { folders.rescanAll() }
+        return HStack(spacing: rowSpacing) {
+            if monitor.alignRight {
+                button
+                total
+                Spacer(minLength: 4)
+                title
+            } else {
+                title
+                Spacer(minLength: 4)
+                total
+                button
+            }
+        }
+        .frame(width: rowWidth)
+    }
+
+    /// Строка папки: псевдоним (если задан) или имя, размер и кнопка обхода.
+    private func folderRow(_ folder: TrackedFolder) -> some View {
+        let scan = folders.scan(for: folder)
+        let value: String
+        if scan?.failed == true {
+            value = "—"
+        } else if let scan {
+            value = Fmt.disk(scan.size)
+        } else {
+            value = "…"
+        }
+        let tip = folderTip(folder, scan)
+        let indent: CGFloat = monitor.compact ? 5 : 7
+        let name = Text(folder.title)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .hoverTip(tip)
+        let size = Text(value).hoverTip(tip)
+        let button = rescanButton(busy: folders.isScanning(folder)) { folders.rescan(folder) }
+        return HStack(spacing: rowSpacing) {
+            if monitor.alignRight {
+                button
+                size
+                Spacer(minLength: 4)
+                name
+                Color.clear.frame(width: indent, height: 1)
+            } else {
+                Color.clear.frame(width: indent, height: 1)
+                name
+                Spacer(minLength: 4)
+                size
+                button
+            }
+        }
+        .font(detailFont)
+        .foregroundStyle(textColor.opacity(0.7))
+        .frame(width: rowWidth)
+    }
+
+    /// Пока обход идёт, кнопка гаснет и не нажимается.
+    private func rescanButton(busy: Bool, action: @escaping () -> Void) -> some View {
+        Image(systemName: "arrow.clockwise")
+            .font(.system(size: monitor.compact ? 8 : 9, weight: .semibold))
+            .foregroundStyle(textColor.opacity(busy ? 0.3 : 0.75))
+            .frame(width: monitor.compact ? 10 : 12, height: monitor.compact ? 10 : 12)
+            .hoverTip(busy ? l10n.t(.scanning) : l10n.t(.rescan))
+            .overlay {
+                if !busy { PanelButton(action: action) }
+            }
+    }
+
+    private func folderTip(_ folder: TrackedFolder, _ scan: FolderScan?) -> String {
+        var lines = [folder.title]
+        if folder.alias.isEmpty == false || folder.title != folder.path {
+            lines.append(folder.path)
+        }
+        lines.append(l10n.t(folder.interval.key))
+        if folders.isScanning(folder) {
+            lines.append(l10n.t(.scanning))
+        }
+        if let scan {
+            if scan.failed {
+                lines.append(l10n.t(.noAccess))
+            } else {
+                lines.append("\(l10n.t(.lastScan)): \(Self.scanTime.string(from: scan.scannedAt))")
+                if !scan.children.isEmpty {
+                    lines.append("")
+                    lines.append("\(l10n.t(.largestItems)):")
+                    for child in scan.children {
+                        // Слэш отличает папку от файла, лежащего прямо в корне.
+                        let name = child.isDirectory ? child.name + "/" : child.name
+                        lines.append("  \(name) — \(Fmt.disk(child.size))")
+                    }
+                }
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static let scanTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     // MARK: - Полоски
 
-    private func bar(fraction: Double) -> some View {
+    private func bar(fraction: Double, tip: String? = nil) -> some View {
         let clamped = min(1, max(0, fraction))
         return ZStack(alignment: .leading) {
             Capsule(style: .continuous).fill(trackColor)
@@ -210,6 +347,7 @@ struct ContentView: View {
                 .frame(width: max(clamped > 0 ? barHeight : 0, barWidth * clamped))
         }
         .frame(width: barWidth, height: barHeight)
+        .hoverTip(tip)
     }
 
     /// Столбик на каждое логическое ядро; ширина полоски фиксирована,
@@ -229,59 +367,114 @@ struct ContentView: View {
         .frame(width: barWidth, height: coreHeight)
     }
 
-    /// Полоска памяти составная: приложения → wired → сжатая → файловый кэш.
-    /// Хвост дорожки — свободная память.
-    private var memoryBar: some View {
+    /// Виды памяти в порядке укладки в полоску. Цвет здесь кодирует «что это»,
+    /// а не «сколько», поэтому шкала категориальная (три разных тона), в отличие
+    /// от ЦП и дисков, где цвет — это величина и уместен градиент.
+    /// Файловый кэш намеренно нейтрально-серый: это не занятая память, система
+    /// отдаёт его по первому требованию.
+    private var memorySegments: [MemorySegment] {
         let memory = monitor.memory
-        let fill = loadColor(memory.usedFraction)
-        func width(_ bytes: UInt64) -> CGFloat {
-            memory.total > 0 ? barWidth * CGFloat(Double(bytes) / Double(memory.total)) : 0
-        }
+        return [
+            MemorySegment(name: l10n.t(.appMemory), bytes: memory.app,
+                          color: Palette.app(contrast: monitor.contrast), help: .helpApp),
+            MemorySegment(name: l10n.t(.wired), bytes: memory.wired,
+                          color: Palette.wired(contrast: monitor.contrast), help: .helpWired),
+            MemorySegment(name: l10n.t(.compressed), bytes: memory.compressed,
+                          color: Palette.compressed(contrast: monitor.contrast), help: .helpCompressed),
+            MemorySegment(name: l10n.t(.cached), bytes: memory.cached,
+                          color: Palette.cached, help: .helpCached),
+        ]
+    }
+
+    /// Полоска памяти составная: приложения → резидентная → сжатая → файловый
+    /// кэш, хвост дорожки — свободная память. Сегменты стоят по своим долям, а
+    /// зазор между ними вырезается из ширины сегмента, а не добавляется к ней:
+    /// иначе полоска врала бы о том, сколько осталось свободного.
+    private var memoryBar: some View {
+        let gap: CGFloat = monitor.compact ? 1.5 : 2
+        let total = Double(max(1, monitor.memory.total))
+        // Сегменты расставлены настоящей раскладкой, а не .offset: тот сдвигает
+        // только отрисовку, и области наведения остались бы лежать друг на друге
+        // у левого края. Зазор идёт отдельной прозрачной вставкой внутри доли
+        // сегмента, поэтому границы стоят точно по долям и хвост дорожки честно
+        // показывает, сколько памяти свободно.
         return ZStack(alignment: .leading) {
-            trackColor
+            Capsule(style: .continuous).fill(trackColor)
             HStack(spacing: 0) {
-                Rectangle().fill(fill).frame(width: width(memory.app))
-                Rectangle().fill(fill.opacity(0.72)).frame(width: width(memory.wired))
-                Rectangle().fill(fill.opacity(0.48)).frame(width: width(memory.compressed))
-                Rectangle().fill(textColor.opacity(0.3)).frame(width: width(memory.cached))
+                ForEach(Array(memorySegments.enumerated()), id: \.offset) { _, segment in
+                    let share = barWidth * CGFloat(Double(segment.bytes) / total)
+                    if share > gap {
+                        Rectangle()
+                            .fill(segment.color)
+                            .frame(width: share - gap)
+                        Color.clear.frame(width: gap)
+                    } else {
+                        Color.clear.frame(width: share)
+                    }
+                }
+                Spacer(minLength: 0)
             }
         }
         .frame(width: barWidth, height: barHeight)
         .clipShape(Capsule(style: .continuous))
+        // Одна область наведения на всю полоску, сегмент вычисляется по доле
+        // координаты курсора — накладка при этом снаружи обрезки капсулой.
+        .hoverTip(at: memoryTip(atFraction:))
+    }
+
+    /// Что показать при наведении на долю `fraction` полоски памяти.
+    /// Хвост после сегментов — свободная память.
+    private func memoryTip(atFraction fraction: Double) -> String? {
+        let total = Double(max(1, monitor.memory.total))
+        var start = 0.0
+        for segment in memorySegments {
+            let share = Double(segment.bytes) / total
+            if fraction < start + share {
+                return "\(segment.name) — \(Fmt.mem(segment.bytes))\n\n\(l10n.t(segment.help))"
+            }
+            start += share
+        }
+        return "\(l10n.t(.freeMemory)) — \(Fmt.mem(monitor.memory.free))\n\n\(l10n.t(.helpFree))"
     }
 
     // MARK: - Разбивка памяти
 
     private var memoryDetails: some View {
         let memory = monitor.memory
-        var rows: [(String, String)] = [
-            (l10n.t(.appMemory), Fmt.mem(memory.app)),
-            (l10n.t(.wired), Fmt.mem(memory.wired)),
-            (l10n.t(.compressed), Fmt.mem(memory.compressed)),
-            (l10n.t(.cached), Fmt.mem(memory.cached)),
-            (l10n.t(.freeMemory), Fmt.mem(memory.free)),
-        ]
+        // Кружок цвета — та же метка, что и в полоске: связывает строку с сегментом.
+        var rows: [(label: String, value: String, help: L10nKey, dot: Color?)] =
+            memorySegments.map { ($0.name, Fmt.mem($0.bytes), $0.help, $0.color) }
+        rows.append((l10n.t(.freeMemory), Fmt.mem(memory.free), .helpFree, trackColor))
         if memory.swapTotal > 0 {
-            rows.append((l10n.t(.swap), Fmt.mem(memory.swapUsed)))
+            rows.append((l10n.t(.swap), Fmt.mem(memory.swapUsed), .helpSwap, nil))
         }
-        rows.append((l10n.t(.pressure), pressureTitle))
+        rows.append((l10n.t(.pressure), pressureTitle, .helpPressure, nil))
 
         return VStack(alignment: .leading, spacing: 1) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, item in
+                let label = HStack(spacing: 3) {
+                    // Место под кружок занято всегда, иначе подписи разъезжаются.
+                    Circle()
+                        .fill(item.dot ?? .clear)
+                        .frame(width: 5, height: 5)
+                    Text(item.label)
+                }
                 HStack(spacing: rowSpacing) {
                     if monitor.alignRight {
-                        Text(item.1)
+                        Text(item.value)
                         Spacer(minLength: 4)
-                        Text(item.0)
+                        label
                     } else {
-                        Text(item.0)
+                        label
                         Spacer(minLength: 4)
-                        Text(item.1)
+                        Text(item.value)
                     }
                 }
                 .font(detailFont)
                 .foregroundStyle(textColor.opacity(0.7))
                 .lineLimit(1)
+                // Наведение на строку — что это за память и зачем она нужна.
+                .hoverTip(l10n.t(item.help))
             }
         }
         .frame(width: rowWidth)
