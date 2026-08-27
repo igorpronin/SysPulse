@@ -17,6 +17,9 @@ enum L10nKey: String {
     case floatingPanel, alwaysOnTop, compactPanel
     case alignMenu, alignLeft, alignRight
     case launchAtLogin, language, about, quit
+    // Проверка обновлений
+    case updatesMenu, checkNow, checkAutomatically, updateAvailable
+    case upToDate, checkFailed, openRelease
     case aboutText, version, openProjectFolder, loginItemError
 }
 
@@ -115,6 +118,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Every 10 minutes",
             .scanHourly: "Every hour",
             .scanDaily: "Every day",
+            .updatesMenu: "Updates",
+            .checkNow: "Check now",
+            .checkAutomatically: "Check automatically",
+            .updateAvailable: "Update available:",
+            .upToDate: "You are running the latest version.",
+            .checkFailed: "Could not reach GitHub to check for updates.",
+            .openRelease: "Open release page",
             .aboutText: "Real-time monitor of CPU load (per core), memory of every kind and free disk space in a small floating window.",
         ],
         "ru": [
@@ -182,6 +192,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Раз в 10 минут",
             .scanHourly: "Раз в час",
             .scanDaily: "Раз в сутки",
+            .updatesMenu: "Обновления",
+            .checkNow: "Проверить сейчас",
+            .checkAutomatically: "Проверять автоматически",
+            .updateAvailable: "Доступна версия:",
+            .upToDate: "У вас последняя версия.",
+            .checkFailed: "Не удалось связаться с GitHub для проверки обновлений.",
+            .openRelease: "Открыть страницу релиза",
             .aboutText: "Мониторинг в реальном времени: загрузка процессора (по ядрам), оперативная память всех видов и свободное место на дисках в маленьком плавающем окошке.",
         ],
         "es": [
@@ -249,6 +266,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Cada 10 minutos",
             .scanHourly: "Cada hora",
             .scanDaily: "Cada día",
+            .updatesMenu: "Actualizaciones",
+            .checkNow: "Buscar ahora",
+            .checkAutomatically: "Buscar automáticamente",
+            .updateAvailable: "Versión disponible:",
+            .upToDate: "Ya tienes la última versión.",
+            .checkFailed: "No se pudo conectar con GitHub para buscar actualizaciones.",
+            .openRelease: "Abrir la página de la versión",
             .aboutText: "Monitor en tiempo real de la carga de CPU (por núcleo), la memoria de todo tipo y el espacio libre en disco en una pequeña ventana flotante.",
         ],
         "de": [
@@ -316,6 +340,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Alle 10 Minuten",
             .scanHourly: "Jede Stunde",
             .scanDaily: "Jeden Tag",
+            .updatesMenu: "Updates",
+            .checkNow: "Jetzt prüfen",
+            .checkAutomatically: "Automatisch prüfen",
+            .updateAvailable: "Neue Version verfügbar:",
+            .upToDate: "Sie haben die neueste Version.",
+            .checkFailed: "GitHub war für die Update-Prüfung nicht erreichbar.",
+            .openRelease: "Release-Seite öffnen",
             .aboutText: "Echtzeit-Überwachung von CPU-Auslastung (pro Kern), Speicher aller Arten und freiem Festplattenplatz in einem kleinen schwebenden Fenster.",
         ],
         "fr": [
@@ -383,6 +414,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Toutes les 10 minutes",
             .scanHourly: "Toutes les heures",
             .scanDaily: "Chaque jour",
+            .updatesMenu: "Mises à jour",
+            .checkNow: "Vérifier maintenant",
+            .checkAutomatically: "Vérifier automatiquement",
+            .updateAvailable: "Version disponible :",
+            .upToDate: "Vous avez la dernière version.",
+            .checkFailed: "Impossible de joindre GitHub pour vérifier les mises à jour.",
+            .openRelease: "Ouvrir la page de la version",
             .aboutText: "Surveillance en temps réel de la charge CPU (par cœur), de la mémoire sous toutes ses formes et de l'espace disque libre dans une petite fenêtre flottante.",
         ],
         "it": [
@@ -450,6 +488,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "Ogni 10 minuti",
             .scanHourly: "Ogni ora",
             .scanDaily: "Ogni giorno",
+            .updatesMenu: "Aggiornamenti",
+            .checkNow: "Controlla ora",
+            .checkAutomatically: "Controlla automaticamente",
+            .updateAvailable: "Versione disponibile:",
+            .upToDate: "Hai già l'ultima versione.",
+            .checkFailed: "Impossibile raggiungere GitHub per controllare gli aggiornamenti.",
+            .openRelease: "Apri la pagina della versione",
             .aboutText: "Monitoraggio in tempo reale del carico della CPU (per core), della memoria di ogni tipo e dello spazio libero su disco in una piccola finestra flottante.",
         ],
         "pt": [
@@ -517,6 +562,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "A cada 10 minutos",
             .scanHourly: "A cada hora",
             .scanDaily: "A cada dia",
+            .updatesMenu: "Atualizações",
+            .checkNow: "Verificar agora",
+            .checkAutomatically: "Verificar automaticamente",
+            .updateAvailable: "Versão disponível:",
+            .upToDate: "Você já tem a versão mais recente.",
+            .checkFailed: "Não foi possível acessar o GitHub para verificar atualizações.",
+            .openRelease: "Abrir a página da versão",
             .aboutText: "Monitoramento em tempo real da carga da CPU (por núcleo), da memória de todos os tipos e do espaço livre em disco em uma pequena janela flutuante.",
         ],
         "zh": [
@@ -584,6 +636,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "每 10 分钟",
             .scanHourly: "每小时",
             .scanDaily: "每天",
+            .updatesMenu: "更新",
+            .checkNow: "立即检查",
+            .checkAutomatically: "自动检查",
+            .updateAvailable: "有新版本：",
+            .upToDate: "已是最新版本。",
+            .checkFailed: "无法连接 GitHub 检查更新。",
+            .openRelease: "打开发布页面",
             .aboutText: "在小型悬浮窗口中实时显示 CPU 负载（分核心）、各类内存占用和磁盘可用空间。",
         ],
         "ja": [
@@ -651,6 +710,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "10分ごと",
             .scanHourly: "1時間ごと",
             .scanDaily: "1日ごと",
+            .updatesMenu: "アップデート",
+            .checkNow: "今すぐ確認",
+            .checkAutomatically: "自動的に確認",
+            .updateAvailable: "新しいバージョン:",
+            .upToDate: "最新バージョンです。",
+            .checkFailed: "GitHub に接続できず、アップデートを確認できませんでした。",
+            .openRelease: "リリースページを開く",
             .aboutText: "CPU使用率（コア別）、あらゆる種類のメモリ、ディスクの空き容量を小さなフローティングウィンドウでリアルタイムに表示します。",
         ],
         "ko": [
@@ -718,6 +784,13 @@ final class L10n: ObservableObject {
             .scan10Minutes: "10분마다",
             .scanHourly: "1시간마다",
             .scanDaily: "1일마다",
+            .updatesMenu: "업데이트",
+            .checkNow: "지금 확인",
+            .checkAutomatically: "자동으로 확인",
+            .updateAvailable: "새 버전:",
+            .upToDate: "최신 버전을 사용 중입니다.",
+            .checkFailed: "GitHub에 연결하지 못해 업데이트를 확인할 수 없습니다.",
+            .openRelease: "릴리스 페이지 열기",
             .aboutText: "CPU 사용량(코어별), 모든 종류의 메모리, 디스크 여유 공간을 작은 플로팅 창에서 실시간으로 보여줍니다.",
         ],
     ]

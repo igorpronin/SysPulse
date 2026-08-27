@@ -42,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastPanelFrame: NSRect = .zero
     private let monitor = SystemMonitor()
     private let folders = FolderTracker()
+    private let updates = UpdateChecker()
+    private var updateMenuItem: NSMenuItem!
+    private var updateSeparator: NSMenuItem!
+    private var autoCheckMenuItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
 
     private var panelVisible: Bool {
@@ -83,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         monitor.start()
         folders.start()
+        updates.start()
         updateStatusItem()
     }
 
@@ -251,6 +256,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.autoenablesItems = false
         flagItems = []
 
+        updateMenuItem = NSMenuItem(title: "", action: #selector(openReleasePageAction), keyEquivalent: "")
+        updateMenuItem.target = self
+        menu.addItem(updateMenuItem)
+        updateSeparator = NSMenuItem.separator()
+        menu.addItem(updateSeparator)
+        refreshUpdateItem()
+
         let activityItem = NSMenuItem(title: l10n.t(.activityMonitor), action: #selector(openActivityMonitorAction), keyEquivalent: "")
         activityItem.target = self
         menu.addItem(activityItem)
@@ -326,6 +338,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         langItem.submenu = langMenu
         menu.addItem(langItem)
+
+        let updatesItem = NSMenuItem(title: l10n.t(.updatesMenu), action: nil, keyEquivalent: "")
+        let updatesMenu = NSMenu()
+        updatesMenu.autoenablesItems = false
+        let checkNowItem = NSMenuItem(title: l10n.t(.checkNow), action: #selector(checkForUpdatesAction), keyEquivalent: "")
+        checkNowItem.target = self
+        updatesMenu.addItem(checkNowItem)
+        autoCheckMenuItem = NSMenuItem(title: l10n.t(.checkAutomatically), action: #selector(toggleAutoCheck), keyEquivalent: "")
+        autoCheckMenuItem.target = self
+        autoCheckMenuItem.state = updates.autoCheck ? .on : .off
+        updatesMenu.addItem(autoCheckMenuItem)
+        updatesItem.submenu = updatesMenu
+        menu.addItem(updatesItem)
 
         let aboutItem = NSMenuItem(title: l10n.t(.about), action: #selector(showAboutAction), keyEquivalent: "")
         aboutItem.target = self
@@ -439,6 +464,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openActivityMonitorAction() { openActivityMonitor() }
 
+    @objc private func openReleasePageAction() { updates.openReleasePage() }
+
+    @objc private func checkForUpdatesAction() { updates.check(report: true) }
+
+    @objc private func toggleAutoCheck() {
+        updates.autoCheck.toggle()
+        autoCheckMenuItem?.state = updates.autoCheck ? .on : .off
+    }
+
+    /// Пункт о новой версии показывается только когда она есть — вместе со
+    /// своим разделителем, иначе меню начиналось бы с висящей черты.
+    private func refreshUpdateItem() {
+        let release = updates.available
+        updateMenuItem?.isHidden = release == nil
+        updateSeparator?.isHidden = release == nil
+        if let release {
+            updateMenuItem?.title = "\(L10n.shared.t(.updateAvailable)) \(release.version)"
+        }
+    }
+
     @objc private func selectLanguage(_ sender: NSMenuItem) {
         guard let code = sender.representedObject as? String else { return }
         L10n.shared.lang = code
@@ -517,6 +562,8 @@ extension AppDelegate: NSMenuDelegate {
     // Состояния могли поменять извне (Системные настройки, другая копия меню).
     func menuWillOpen(_ menu: NSMenu) {
         TooltipPanel.shared.isSuppressed = true
+        refreshUpdateItem()
+        autoCheckMenuItem?.state = updates.autoCheck ? .on : .off
         loginMenuItem?.state = SMAppService.mainApp.status == .enabled ? .on : .off
         onTopMenuItem?.state = panelOnTop ? .on : .off
         panelMenuItem?.state = panelVisible ? .on : .off

@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md)
 
-Current version: **0.3.2** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
+Current version: **0.4.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
 
 <img src="docs/icon.png" width="96" align="right" alt="SysPulse icon">
 
@@ -38,11 +38,14 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Always on top** is a separate toggle: with it off, the window orders like a regular window and can be covered by others.
 - **Everything is remembered** — chosen metrics, hidden volumes, window position, compact mode, alignment, opacity and visibility all survive app restarts.
 - **Launch at login** — toggle in the menu (uses the system `SMAppService`).
+- **Update check** — once a day SysPulse asks GitHub whether a newer release is out. If one is, the top line of the menu says so and opens the release page; it never downloads or replaces anything by itself. Check by hand any time, or turn the automatic check off entirely.
 - **10 languages** — English (default), Русский, Español, Deutsch, Français, Italiano, Português, 中文, 日本語, 한국어. Switchable from the menu.
 
 ## Privacy
 
-SysPulse makes no network requests at all. It only reads its own machine's counters through public macOS APIs, and stores your settings locally in the app's preferences. No accounts, no analytics, nothing leaves your Mac.
+SysPulse makes exactly one kind of network request: once a day it asks GitHub whether a newer release exists. Nothing about you is sent — GitHub sees an IP address and the app's name and version, the same as any browser opening the releases page — and you can switch the check off in **Updates → Check automatically**.
+
+Everything else is local: the app reads its own machine's counters through public macOS APIs and keeps your settings in its own preferences. No accounts, no analytics, no telemetry, and nothing about your files or your machine leaves it.
 
 ## Install (prebuilt)
 

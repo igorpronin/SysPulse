@@ -3,6 +3,21 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.4.0] — 2026-08-27
+
+### Added
+- Update check. Once a day SysPulse asks GitHub whether a newer release exists;
+  when one does, the top line of the menu says so and opens the release page.
+  There is a manual "Check now" and a switch to turn the automatic check off —
+  it is on by default. Versions are compared part by part, so 0.10.0 correctly
+  counts as newer than 0.9.0.
+- The app deliberately does not download or install anything by itself: it is
+  not notarized, and replacing itself would run straight into Gatekeeper.
+
+### Changed
+- The privacy section of both READMEs now describes that request instead of
+  claiming the app never touches the network.
+
 ## [0.3.2] — 2026-08-05
 
 ### Changed
@@ -178,6 +193,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.4.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.4.0
 [0.3.2]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.2
 [0.3.1]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.1
 [0.3.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.3.0

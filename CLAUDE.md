@@ -95,6 +95,23 @@ only when the user themselves adds a protected folder (Desktop, Documents,
 Downloads). Denied access surfaces as `noAccess`, never as a crash or a zero.
 The three core metrics still need no permissions and must stay that way.
 
+## Update check — the only network code
+
+`UpdateChecker.swift` is the sole place in the app that touches the network:
+one anonymous GET to the GitHub releases API, at most once a day, guarded by a
+timestamp in UserDefaults so the hourly timer cannot turn into hourly requests.
+GitHub rejects requests without a `User-Agent`, so that header is required, not
+decoration. Keep `parse` and `isNewer` `nonisolated` — they run on the URLSession
+callback, off the main actor.
+
+Do NOT add downloading or self-replacement. The app is ad-hoc signed and not
+notarized; replacing itself would land straight in Gatekeeper. Finding a new
+version opens the release page and stops there.
+
+If you ever add a second network call, the privacy section of BOTH READMEs has
+to change with it — it currently promises exactly this one request and nothing
+else, and that promise is the reason the check can be switched off.
+
 ## Hover tooltips
 
 Do NOT use `.help(_:)` or `NSView.toolTip` on the panel. `NSToolTipManager` only
