@@ -3,6 +3,24 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.8.0] — 2026-08-30
+
+### Fixed
+- External drives reported "0 MB free". `volumeAvailableCapacityForImportantUsage`
+  answers with the space the system would grant for important data, counting
+  what it could purge first — a notion only APFS and HFS+ have. On exFAT and
+  FAT, which is how most external drives arrive from the factory, the kernel
+  answers that question with a flat zero: not an error, "not applicable".
+  Measured on scratch volumes: 147 MB free, the key returned 0. A zero now falls
+  back to the plain free-space count, which every filesystem keeps. APFS and
+  HFS+ are untouched, so the boot volume still matches Finder to the byte.
+
+### Added
+- Clicking a volume's bar opens it in Finder, and clicking a tracked folder's
+  name opens the folder. Only those parts are clickable — the rest of each row
+  stays free for dragging the panel — and both hover tips end with a line
+  saying so, since nothing else would give it away.
+
 ## [0.7.0] — 2026-08-27
 
 ### Changed
@@ -255,6 +273,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.8.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.8.0
 [0.7.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.7.0
 [0.6.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.6.0
 [0.5.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.5.0

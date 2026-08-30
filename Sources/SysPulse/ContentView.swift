@@ -230,12 +230,15 @@ struct ContentView: View {
 
     private func volumeRow(_ volume: VolumeUsage) -> some View {
         // В строке видно свободное место, поэтому в подсказке — занятое, вместе
-        // с полным именем тома: в узкой колонке метка обрезается.
+        // с полным именем тома: в узкой колонке метка обрезается. Последней
+        // строкой — что по полоске можно кликнуть: иначе об этом никто не узнает.
         let tip = """
             \(volume.name)
             \(l10n.t(.used)): \(Fmt.disk(volume.used)) / \(Fmt.disk(volume.total)) \
             (\(Fmt.percent(volume.usedFraction)))
             \(l10n.t(.freeMemory)): \(Fmt.disk(volume.free))
+
+            \(l10n.t(.openInFinder))
             """
         return row(
             label: volume.isRoot ? l10n.t(.disk) : volume.name,
@@ -243,6 +246,13 @@ struct ContentView: View {
             value: "\(Fmt.disk(volume.free)) \(l10n.t(.free))"
         ) {
             bar(fraction: volume.usedFraction, tip: tip)
+                // Кликается только сама полоска, не вся строка: иначе панель
+                // стало бы почти не за что таскать.
+                .overlay {
+                    PanelButton {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: volume.id))
+                    }
+                }
         }
     }
 
@@ -300,10 +310,18 @@ struct ContentView: View {
         }
         let tip = folderTip(folder, scan)
         let indent: CGFloat = monitor.compact ? 5 : 7
+        // Кликается имя папки — как у дисков кликается полоска. Размер и кнопку
+        // обхода не трогаем: у кнопки своё действие, а за остаток строки панель
+        // ещё должно быть за что таскать.
         let name = Text(folder.title)
             .lineLimit(1)
             .truncationMode(.tail)
             .hoverTip(tip)
+            .overlay {
+                PanelButton {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: folder.path))
+                }
+            }
         let size = Text(value).hoverTip(tip)
         let button = rescanButton(busy: folders.isScanning(folder)) { folders.rescan(folder) }
         return HStack(spacing: rowSpacing) {
@@ -363,6 +381,9 @@ struct ContentView: View {
                 }
             }
         }
+        // Последней строкой — что по имени можно кликнуть: иначе не догадаться.
+        lines.append("")
+        lines.append(l10n.t(.openInFinder))
         return lines.joined(separator: "\n")
     }
 

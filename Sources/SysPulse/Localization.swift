@@ -13,6 +13,7 @@ enum L10nKey: String {
     case updateInterval, menuBarMenu, volumesSection, activityMonitor
     // Отслеживание папок
     case showFolders, foldersSettings, addFolder, folderPath, chooseFolder, alias, rescan, remove
+    case openInFinder
     case largestItems, scanning, noAccess, lastScan
     case scanNever, scanMinute, scan5Minutes, scan10Minutes, scanHourly, scanDaily
     case floatingPanel, alwaysOnTop, compactPanel
@@ -132,6 +133,7 @@ final class L10n: ObservableObject {
             .showGPU: "GPU load",
             .performanceCores: "Performance cores",
             .efficiencyCores: "Efficiency cores",
+            .openInFinder: "Click to open in Finder",
             .aboutText: "Real-time monitor of CPU load (per core), memory of every kind and free disk space in a small floating window.",
         ],
         "ru": [
@@ -212,6 +214,7 @@ final class L10n: ObservableObject {
             .showGPU: "Загрузка GPU",
             .performanceCores: "Производительные ядра",
             .efficiencyCores: "Экономичные ядра",
+            .openInFinder: "Клик — открыть в Finder",
             .aboutText: "Мониторинг в реальном времени: загрузка процессора (по ядрам), оперативная память всех видов и свободное место на дисках в маленьком плавающем окошке.",
         ],
         "es": [
@@ -292,6 +295,7 @@ final class L10n: ObservableObject {
             .showGPU: "Carga de GPU",
             .performanceCores: "Núcleos de rendimiento",
             .efficiencyCores: "Núcleos de eficiencia",
+            .openInFinder: "Clic para abrir en Finder",
             .aboutText: "Monitor en tiempo real de la carga de CPU (por núcleo), la memoria de todo tipo y el espacio libre en disco en una pequeña ventana flotante.",
         ],
         "de": [
@@ -372,6 +376,7 @@ final class L10n: ObservableObject {
             .showGPU: "GPU-Auslastung",
             .performanceCores: "Leistungskerne",
             .efficiencyCores: "Effizienzkerne",
+            .openInFinder: "Klicken, um im Finder zu öffnen",
             .aboutText: "Echtzeit-Überwachung von CPU-Auslastung (pro Kern), Speicher aller Arten und freiem Festplattenplatz in einem kleinen schwebenden Fenster.",
         ],
         "fr": [
@@ -452,6 +457,7 @@ final class L10n: ObservableObject {
             .showGPU: "Charge GPU",
             .performanceCores: "Cœurs performance",
             .efficiencyCores: "Cœurs efficacité",
+            .openInFinder: "Cliquer pour ouvrir dans le Finder",
             .aboutText: "Surveillance en temps réel de la charge CPU (par cœur), de la mémoire sous toutes ses formes et de l'espace disque libre dans une petite fenêtre flottante.",
         ],
         "it": [
@@ -532,6 +538,7 @@ final class L10n: ObservableObject {
             .showGPU: "Carico GPU",
             .performanceCores: "Core performance",
             .efficiencyCores: "Core efficienza",
+            .openInFinder: "Clic per aprire nel Finder",
             .aboutText: "Monitoraggio in tempo reale del carico della CPU (per core), della memoria di ogni tipo e dello spazio libero su disco in una piccola finestra flottante.",
         ],
         "pt": [
@@ -612,6 +619,7 @@ final class L10n: ObservableObject {
             .showGPU: "Carga da GPU",
             .performanceCores: "Núcleos de desempenho",
             .efficiencyCores: "Núcleos de eficiência",
+            .openInFinder: "Clique para abrir no Finder",
             .aboutText: "Monitoramento em tempo real da carga da CPU (por núcleo), da memória de todos os tipos e do espaço livre em disco em uma pequena janela flutuante.",
         ],
         "zh": [
@@ -692,6 +700,7 @@ final class L10n: ObservableObject {
             .showGPU: "GPU 负载",
             .performanceCores: "性能核心",
             .efficiencyCores: "能效核心",
+            .openInFinder: "点按可在访达中打开",
             .aboutText: "在小型悬浮窗口中实时显示 CPU 负载（分核心）、各类内存占用和磁盘可用空间。",
         ],
         "ja": [
@@ -772,6 +781,7 @@ final class L10n: ObservableObject {
             .showGPU: "GPU使用率",
             .performanceCores: "高性能コア",
             .efficiencyCores: "高効率コア",
+            .openInFinder: "クリックでFinderに表示",
             .aboutText: "CPU使用率（コア別）、あらゆる種類のメモリ、ディスクの空き容量を小さなフローティングウィンドウでリアルタイムに表示します。",
         ],
         "ko": [
@@ -852,6 +862,7 @@ final class L10n: ObservableObject {
             .showGPU: "GPU 사용량",
             .performanceCores: "성능 코어",
             .efficiencyCores: "효율 코어",
+            .openInFinder: "클릭하면 Finder에서 열림",
             .aboutText: "CPU 사용량(코어별), 모든 종류의 메모리, 디스크 여유 공간을 작은 플로팅 창에서 실시간으로 보여줍니다.",
         ],
     ]

@@ -235,6 +235,7 @@ private enum DiskSampler {
         let keys: [URLResourceKey] = [
             .volumeNameKey, .volumeTotalCapacityKey,
             .volumeAvailableCapacityForImportantUsageKey,
+            .volumeAvailableCapacityKey,
             .volumeIsBrowsableKey, .volumeIsLocalKey,
         ]
         let urls = FileManager.default.mountedVolumeURLs(
@@ -248,7 +249,18 @@ private enum DiskSampler {
                   values.volumeIsLocal == true,
                   let total = values.volumeTotalCapacity, total > 0
             else { continue }
-            let free = values.volumeAvailableCapacityForImportantUsage ?? 0
+            // ForImportantUsage учитывает освобождаемое место (снапшоты, кэши,
+            // выгружаемое в iCloud) и потому точнее совпадает с Finder — но само
+            // понятие purgeable есть только в APFS и HFS+. На FAT и exFAT, в
+            // которые отформатировано большинство внешних дисков, ядро отвечает
+            // на этот запрос НУЛЁМ: не ошибка, а «неприменимо». Проверено на
+            // тестовых томах: при 147 МБ свободных ключ давал ровно 0.
+            // Поэтому ноль означает «этот том так не умеет» — падаем на обычный
+            // счётчик свободного места, который есть везде.
+            let important = values.volumeAvailableCapacityForImportantUsage ?? 0
+            let free = important > 0
+                ? important
+                : Int64(values.volumeAvailableCapacity ?? 0)
             result.append(VolumeUsage(
                 id: url.path,
                 name: values.volumeName ?? url.lastPathComponent,
