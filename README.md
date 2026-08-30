@@ -47,6 +47,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Eject external drives** — an eject button on the row of every removable volume, so unmounting a drive is one click where you are already looking at it, not a trip to Finder.
 - **Filesystem in the disk tooltip** — hovering a volume would also say what it is formatted as: APFS, HFS+, exFAT, FAT32. That one word explains on the spot why an external drive reports its free space differently from the boot volume, instead of leaving the answer buried in this README.
 - **Nesting-aware folder totals** — when one tracked folder sits inside another, its bytes are currently counted twice: the "Folders" heading simply adds every folder up. The plan is to work out which folders contain which and count the shared space once, so the total is the space actually occupied rather than the sum of the rows.
+- **Scroll to a newly added folder** — "Add folder" appends an empty row at the bottom of the list, and once the list is taller than the window that row lands out of sight, so the button looks as if it did nothing at all. Adding a folder should scroll the list down to it.
 - **European Portuguese in the app** — the interface currently speaks Brazilian Portuguese, while this README is already written in the European variant. The plan is a separate pt-PT translation offered alongside pt-BR in the language menu, so the two match.
 
 ## Privacy

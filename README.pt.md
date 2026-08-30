@@ -47,6 +47,7 @@ A janela flutuante semitransparente sobre a secretária; os mesmos números vive
 - **Ejetar discos externos** — um botão de ejetar na linha de cada volume amovível, para desmontar um disco com um clique ali mesmo onde já está a olhar, em vez de ir ao Finder para isso.
 - **Formato do volume na dica do disco** — passar o ponteiro por um volume passaria a dizer também em que está formatado: APFS, HFS+, exFAT, FAT32. Essa única palavra explica ali mesmo porque é que um disco externo conta o espaço livre de outra maneira que o volume de arranque, em vez de deixar a resposta enterrada neste README.
 - **Totais de pastas com noção de aninhamento** — quando uma pasta acompanhada está dentro de outra, os seus bytes são hoje contados duas vezes: o título «Pastas» limita-se a somar todas as pastas. O plano é apurar que pasta contém qual e contar o espaço partilhado uma só vez, para que o total seja o espaço realmente ocupado e não a soma das linhas.
+- **Ir até à pasta acabada de adicionar** — «Adicionar pasta» acrescenta uma linha vazia ao fundo da lista e, assim que a lista fica mais alta do que a janela, essa linha cai fora da vista: parece que o botão não fez rigorosamente nada. Adicionar uma pasta deve deslocar a lista até lá.
 - **Português europeu na aplicação** — a interface fala hoje o português do Brasil, ao passo que este README já está escrito na variante europeia. O plano é uma tradução pt-PT à parte, oferecida a par da pt-BR no menu de idiomas, para que as duas coincidam.
 
 ## Privacidade
