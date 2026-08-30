@@ -42,6 +42,11 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Update check** — once a day SysPulse asks GitHub whether a newer release is out. If one is, the top line of the menu says so and opens the release page; it never downloads or replaces anything by itself. Check by hand any time, or turn the automatic check off entirely.
 - **10 languages** — English (default), Русский, Español, Deutsch, Français, Italiano, Português, 中文, 日本語, 한국어. Switchable from the menu.
 
+## Plans
+
+- **Eject external drives** — an eject button on the row of every removable volume, so unmounting a drive is one click where you are already looking at it, not a trip to Finder.
+- **Nesting-aware folder totals** — when one tracked folder sits inside another, its bytes are currently counted twice: the "Folders" heading simply adds every folder up. The plan is to work out which folders contain which and count the shared space once, so the total is the space actually occupied rather than the sum of the rows.
+
 ## Privacy
 
 SysPulse makes exactly one kind of network request: once a day it asks GitHub whether a newer release exists. Nothing about you is sent — GitHub sees an IP address and the app's name and version, the same as any browser opening the releases page — and you can switch the check off in **Updates → Check automatically**.
