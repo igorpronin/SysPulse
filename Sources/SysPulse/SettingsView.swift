@@ -70,102 +70,153 @@ struct MetricsSettingsView: View {
     }
 }
 
-// Окно «Folders»: список отслеживаемых папок. У каждой — псевдоним (если задан,
-// в панели показывается он), частота обхода и кнопка ручного пересканирования.
+// Окно «Folders»: список отслеживаемых папок.
+//
+// Строки здесь — черновики, а не сам список трекера. «Добавить папку» создаёт
+// пустую строку, и запись попадает в сохранённый список только когда путь
+// проверен: существует и это папка. Пока путь пуст или неверен, поле обведено
+// красным, а в настройках ничего нет — закрыли окно, и черновик просто исчез.
 struct FoldersSettingsView: View {
     @ObservedObject var folders: FolderTracker
     @ObservedObject var l10n = L10n.shared
 
+    struct Row: Identifiable {
+        let id: UUID
+        var path: String
+        var alias: String
+        var interval: ScanInterval
+    }
+
+    @State private var rows: [Row] = []
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(folders.folders) { folder in
-                        row(folder)
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach($rows) { $row in
+                        rowView($row)
                     }
                 }
                 .padding(.trailing, 4)
             }
             Divider()
-            Button(l10n.t(.addFolder)) { pickFolder() }
+            Button(l10n.t(.addFolder)) {
+                rows.append(Row(id: UUID(), path: "", alias: "", interval: .tenMinutes))
+            }
         }
         .padding(16)
-        .frame(width: 580, height: 340)
+        .frame(width: 600, height: 360)
+        .onAppear(perform: reload)
+        // Папку могли удалить с диска — трекер выкидывает её сам, и список
+        // в открытом окне должен это отразить.
+        .onChange(of: folders.folders.count) { _ in reload() }
+    }
+
+    private func reload() {
+        let saved = folders.folders.map {
+            Row(id: $0.id, path: $0.path, alias: $0.alias, interval: $0.interval)
+        }
+        // Черновики, которые человек ещё не довёл до ума, не трогаем.
+        let drafts = rows.filter { row in
+            !saved.contains { $0.id == row.id } && FolderTracker.validPath(row.path) == nil
+        }
+        rows = saved + drafts
     }
 
     @ViewBuilder
-    private func row(_ folder: TrackedFolder) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 8) {
-                Text(folder.name)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(width: 150, alignment: .leading)
+    private func rowView(_ row: Binding<Row>) -> some View {
+        let valid = FolderTracker.validPath(row.wrappedValue.path) != nil
+        let empty = row.wrappedValue.path.trimmingCharacters(in: .whitespaces).isEmpty
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                TextField(l10n.t(.folderPath), text: row.path)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 370)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.red, lineWidth: empty || valid ? 0 : 1.5)
+                    )
+                    .onChange(of: row.wrappedValue.path) { _ in commit(row.wrappedValue) }
 
-                // Плейсхолдер — имя папки: видно, что подставится, если не задать.
-                TextField(folder.name, text: Binding(
-                    get: { folder.alias },
-                    set: { folders.setAlias($0, for: folder) }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 150)
-                .help(l10n.t(.alias))
+                Button { choose(row) } label: { Image(systemName: "folder") }
+                    .help(l10n.t(.chooseFolder))
 
-                Picker("", selection: Binding(
-                    get: { folder.interval },
-                    set: { folders.setInterval($0, for: folder) }
-                )) {
+                Spacer()
+
+                Button {
+                    if let folder = folders.folders.first(where: { $0.id == row.wrappedValue.id }) {
+                        folders.rescan(folder)
+                    }
+                } label: { Image(systemName: "arrow.clockwise") }
+                    .help(l10n.t(.rescan))
+                    .disabled(!valid)
+
+                Button {
+                    folders.remove(id: row.wrappedValue.id)
+                    rows.removeAll { $0.id == row.wrappedValue.id }
+                } label: { Image(systemName: "minus") }
+                    .help(l10n.t(.remove))
+            }
+
+            HStack(spacing: 6) {
+                TextField(placeholder(for: row.wrappedValue), text: row.alias)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 170)
+                    .help(l10n.t(.alias))
+                    .onChange(of: row.wrappedValue.alias) { _ in commit(row.wrappedValue) }
+
+                Picker("", selection: row.interval) {
                     ForEach(ScanInterval.allCases, id: \.rawValue) { interval in
                         Text(l10n.t(interval.key)).tag(interval)
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 160)
+                .onChange(of: row.wrappedValue.interval) { _ in commit(row.wrappedValue) }
 
-                Button {
-                    folders.rescan(folder)
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .help(l10n.t(.rescan))
-                .disabled(folders.isScanning(folder))
-
-                Button {
-                    folders.remove(folder)
-                } label: {
-                    Image(systemName: "minus")
-                }
-                .help(l10n.t(.remove))
+                Text(status(row.wrappedValue))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            HStack(spacing: 6) {
-                Text(folder.path)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                Text("·")
-                Text(status(folder))
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .disabled(!valid)
         }
     }
 
-    private func status(_ folder: TrackedFolder) -> String {
+    /// Плейсхолдер псевдонима — имя папки: видно, что подставится, если не задать.
+    private func placeholder(for row: Row) -> String {
+        let name = URL(fileURLWithPath: row.path).lastPathComponent
+        return name.isEmpty ? l10n.t(.alias) : name
+    }
+
+    /// Переносит строку в сохранённый список, если путь годится, и убирает
+    /// оттуда, если перестал годиться.
+    private func commit(_ row: Row) {
+        guard let path = FolderTracker.validPath(row.path) else {
+            folders.remove(id: row.id)
+            return
+        }
+        folders.upsert(id: row.id, path: path, alias: row.alias, interval: row.interval)
+    }
+
+    private func status(_ row: Row) -> String {
+        guard let folder = folders.folders.first(where: { $0.id == row.id }) else { return "" }
         if folders.isScanning(folder) { return l10n.t(.scanning) }
         guard let scan = folders.scan(for: folder) else { return "—" }
         return scan.failed ? l10n.t(.noAccess) : Fmt.disk(scan.size)
     }
 
-    private func pickFolder() {
+    private func choose(_ row: Binding<Row>) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.allowsMultipleSelection = true
-        panel.prompt = l10n.t(.addFolder).replacingOccurrences(of: "…", with: "")
-        NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK else { return }
-        for url in panel.urls {
-            folders.add(path: url.path)
+        panel.allowsMultipleSelection = false
+        if let current = FolderTracker.validPath(row.wrappedValue.path) {
+            panel.directoryURL = URL(fileURLWithPath: current)
         }
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        row.wrappedValue.path = url.path
+        commit(row.wrappedValue)
     }
 }
 

@@ -3,5 +3,5 @@
 // Каждое изменение функционала сопровождается повышением версии здесь.
 enum AppInfo {
     static let name = "SysPulse"
-    static let version = "0.6.0"
+    static let version = "0.7.0"
 }

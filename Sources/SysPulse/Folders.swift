@@ -161,16 +161,43 @@ final class FolderTracker: ObservableObject {
 
     // MARK: - Список папок
 
-    func add(path: String) {
-        guard !folders.contains(where: { $0.path == path }) else { return }
-        let folder = TrackedFolder(path: path)
-        folders.append(folder)
-        rescan(folder)
+    /// Путь годится, если он существует и это папка. Возвращает нормализованный
+    /// путь (с раскрытой тильдой) — его и храним, чтобы «~/Downloads» и
+    /// «/Users/me/Downloads» не жили в списке как две разные записи.
+    static func validPath(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let expanded = (trimmed as NSString).expandingTildeInPath
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: expanded, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else { return nil }
+        return expanded
     }
 
-    func remove(_ folder: TrackedFolder) {
-        folders.removeAll { $0.id == folder.id }
-        scans.removeValue(forKey: folder.id.uuidString)
+    /// Добавляет или обновляет запись. Ключ — id строки в окне настроек, а не
+    /// путь: пока человек правит путь, запись остаётся той же, и накопленный
+    /// кэш обхода не теряется.
+    func upsert(id: UUID, path: String, alias: String, interval: ScanInterval) {
+        if let index = folders.firstIndex(where: { $0.id == id }) {
+            let changed = folders[index].path != path
+            folders[index].path = path
+            folders[index].alias = alias
+            folders[index].interval = interval
+            if changed {
+                scans.removeValue(forKey: id.uuidString)
+                rescan(folders[index])
+            }
+        } else {
+            let folder = TrackedFolder(id: id, path: path, alias: alias, interval: interval)
+            folders.append(folder)
+            rescan(folder)
+        }
+    }
+
+    func remove(id: UUID) {
+        folders.removeAll { $0.id == id }
+        scans.removeValue(forKey: id.uuidString)
     }
 
     func setAlias(_ alias: String, for folder: TrackedFolder) {
@@ -195,10 +222,21 @@ final class FolderTracker: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.scanDueFolders() }
         }
+        pruneMissingFolders()
         scanDueFolders()
     }
 
+    /// Папку удалили — убираем её из списка молча. Спрашивать не о чем:
+    /// отслеживать несуществующее нечего, а запись с прочерком только мешает.
+    private func pruneMissingFolders() {
+        let gone = folders.filter { Self.validPath($0.path) == nil }
+        guard !gone.isEmpty else { return }
+        for folder in gone { scans.removeValue(forKey: folder.id.uuidString) }
+        folders.removeAll { folder in gone.contains { $0.id == folder.id } }
+    }
+
     private func scanDueFolders() {
+        pruneMissingFolders()
         let now = Date()
         for folder in folders where folder.interval != .never {
             let due = scan(for: folder).map {

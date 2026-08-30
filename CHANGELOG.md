@@ -3,6 +3,24 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.7.0] — 2026-08-27
+
+### Changed
+- Folders are added by typing a path now, with a button beside the field to pick
+  one in Finder instead. "Add folder" makes an empty row rather than opening a
+  dialog straight away, so a path can be pasted as easily as browsed to. `~` is
+  expanded, and the stored path is the expanded one, so the same folder cannot
+  end up in the list twice under two spellings.
+- A path that does not exist, or points at a file rather than a folder, outlines
+  the field in red and is not saved. Rows are drafts until the path checks out:
+  close the window with an empty or wrong path and nothing is kept, and the next
+  time the window opens it shows only what was actually saved.
+
+### Added
+- A folder that disappears from disk is dropped from the list on its own, with
+  no prompt. Tracking something that no longer exists serves no purpose, and a
+  row showing a dash serves less.
+
 ## [0.6.0] — 2026-08-27
 
 ### Changed
@@ -237,6 +255,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.7.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.7.0
 [0.6.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.6.0
 [0.5.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.5.0
 [0.4.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.4.0

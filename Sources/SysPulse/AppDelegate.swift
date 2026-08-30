@@ -174,6 +174,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func openFoldersSettings() {
+        // Содержимое пересоздаём при каждом открытии: черновые строки с пустым
+        // или неверным путём не должны всплывать в следующем сеансе — окно
+        // показывает только то, что реально сохранено.
+        if let window = foldersSettingsWindow {
+            window.contentViewController =
+                NSHostingController(rootView: FoldersSettingsView(folders: folders))
+        }
         if foldersSettingsWindow == nil {
             let host = NSHostingController(rootView: FoldersSettingsView(folders: folders))
             let window = NSWindow(contentViewController: host)

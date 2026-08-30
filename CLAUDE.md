@@ -85,6 +85,14 @@ fight each other over the disk — and a folder already being scanned is never
 queued again, so a slow walk cannot pile up behind a fast interval. Budget
 roughly 25 s for 375 GB when choosing defaults.
 
+Rows in the Folders window are DRAFTS: a folder reaches the saved list only
+once its path checks out (`FolderTracker.validPath` — exists and is a
+directory). An empty or wrong path outlines the field and keeps the row out of
+the settings entirely, and the window rebuilds its content on every open so
+yesterday's draft never comes back. A folder that vanishes from disk is dropped
+by `pruneMissingFolders` without asking — note this also fires for a folder on
+an unmounted volume.
+
 Results are cached to UserDefaults with their timestamp: a size is on screen at
 launch without waiting, and the next scan is due from when the last one really
 ran, not from app start. `FolderTracker.frozen` (screenshot mode) blocks both
