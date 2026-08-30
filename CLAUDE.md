@@ -13,10 +13,26 @@ in `/Applications` must always be the `-dev` build.
 
 ## README files
 
-`README.md` (English) and `README.ru.md` (Russian) are mirrors of each other. Any
-change to one MUST be applied to the other in the same commit. Both keep the
-language-switcher links (`**English** | [Русский](README.ru.md)` /
-`[English](README.md) | **Русский**`) at the top — do not remove them.
+There are THREE mirrors of the same document: `README.md` (English),
+`README.ru.md` (Russian) and `README.pt.md` (European Portuguese). Any change to
+one MUST be applied to ALL THREE in the same commit — a new feature bullet, a
+version line, a Plans entry, a reworded sentence. English is the source of
+truth; when the three drift, bring the others back to it rather than the reverse.
+
+Each keeps its language-switcher line at the top, with the current language in
+bold and the other two as links — do not remove or reorder them:
+
+    **English** | [Русский](README.ru.md) | [Português](README.pt.md)
+    [English](README.md) | **Русский** | [Português](README.pt.md)
+    [English](README.md) | [Русский](README.ru.md) | **Português**
+
+`README.pt.md` is European Portuguese (pt-PT): *ficheiro*, *ecrã*, *percentagem*,
+*predefinição*, *aplicação*, "está a fazer" rather than "está fazendo", and the
+pt-PT macOS names — Definições do Sistema, Privacidade e Segurança, Abrir Mesmo
+Assim, Secretária / Documentos / Transferências. Note the app's own UI strings in
+`Localization.swift` are Brazilian Portuguese. That mismatch is deliberate for
+now and recorded as a Plans entry in all three READMEs; if a pt-PT UI table is
+ever added, drop that entry from all three at the same time.
 
 ## Languages
 

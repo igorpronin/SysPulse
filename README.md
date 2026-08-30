@@ -1,6 +1,6 @@
 # SysPulse
 
-**English** | [Русский](README.ru.md)
+**English** | [Русский](README.ru.md) | [Português](README.pt.md)
 
 Current version: **0.8.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
 
@@ -46,6 +46,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 
 - **Eject external drives** — an eject button on the row of every removable volume, so unmounting a drive is one click where you are already looking at it, not a trip to Finder.
 - **Nesting-aware folder totals** — when one tracked folder sits inside another, its bytes are currently counted twice: the "Folders" heading simply adds every folder up. The plan is to work out which folders contain which and count the shared space once, so the total is the space actually occupied rather than the sum of the rows.
+- **European Portuguese in the app** — the interface currently speaks Brazilian Portuguese, while this README is already written in the European variant. The plan is a separate pt-PT translation offered alongside pt-BR in the language menu, so the two match.
 
 ## Privacy
 
