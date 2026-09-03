@@ -49,6 +49,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Nesting-aware folder totals** — when one tracked folder sits inside another, its bytes are currently counted twice: the "Folders" heading simply adds every folder up. The plan is to work out which folders contain which and count the shared space once, so the total is the space actually occupied rather than the sum of the rows.
 - **Scroll to a newly added folder** — "Add folder" appends an empty row at the bottom of the list, and once the list is taller than the window that row lands out of sight, so the button looks as if it did nothing at all. Adding a folder should scroll the list down to it.
 - **History and a chart** — free disk space and folder sizes are measured every few minutes and every reading is then thrown away. Kept in a small local log, the same numbers become a line you can read at a glance: whether a disk is filling steadily or lost 40 GB overnight, and which tracked folder was the one that grew. The log would stay on the machine, like everything else the app records.
+- **Dismiss the hover tooltip when the panel is dragged** — dragging the panel to a new spot leaves whatever tooltip was showing (CPU, memory, a disk) hanging in its old position instead of disappearing with the move.
 - **European Portuguese in the app** — the interface currently speaks Brazilian Portuguese, while this README is already written in the European variant. The plan is a separate pt-PT translation offered alongside pt-BR in the language menu, so the two match.
 
 ## Privacy
