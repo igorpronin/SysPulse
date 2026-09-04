@@ -29,18 +29,27 @@ bold and the other two as links — do not remove or reorder them:
 `README.pt.md` is European Portuguese (pt-PT): *ficheiro*, *ecrã*, *percentagem*,
 *predefinição*, *aplicação*, "está a fazer" rather than "está fazendo", and the
 pt-PT macOS names — Definições do Sistema, Privacidade e Segurança, Abrir Mesmo
-Assim, Secretária / Documentos / Transferências. Note the app's own UI strings in
-`Localization.swift` are Brazilian Portuguese. That mismatch is deliberate for
-now and recorded as a Plans entry in all three READMEs; if a pt-PT UI table is
-ever added, drop that entry from all three at the same time.
+Assim, Secretária / Documentos / Transferências. It describes the pt-PT build of
+the UI, which since 0.9.0 is a language of its own — keep the two in the same
+variant, and never let a pt-BR word from `Localization.swift` drift into it.
+Watch for the false friends in particular: *apelido* is a surname in Portugal,
+so the alias field is `Nome alternativo` in both the table and this README.
 
 ## Languages
 
-The app UI has 10 languages (en, ru, es, de, fr, it, pt, zh, ja, ko) in
+The app UI has 11 languages (en, ru, es, de, fr, it, pt, pt-PT, zh, ja, ko) in
 `Sources/SysPulse/Localization.swift`. Every new UI string MUST be added to ALL
-ten language tables at once — `t(_:)` force-unwraps the English table, and a
+eleven language tables at once — `t(_:)` force-unwraps the English table, and a
 missing key elsewhere silently falls back to English. The dev-only About suffix
 (`devSuffix`) exists in en/ru only; that is intentional.
+
+`pt` is Brazilian and `pt-PT` European Portuguese; they are separate tables
+because the variants differ in vocabulary (ficheiro / arquivo), in grammar
+("a analisar" against "analisando") and in false friends. When a string names a
+macOS command or a Finder verb, take the wording from the system rather than
+from memory: the localized `.strings` under
+`/System/Library/CoreServices/Finder.app/Contents/Resources/<lang>.lproj/` are
+the source the eject terms (推出, 取り出す, 추출) came from.
 
 ## Versioning — MANDATORY
 

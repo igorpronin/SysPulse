@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md) | [Português](README.pt.md)
 
-Current version: **0.8.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
+Current version: **0.9.0** — see [Releases](../../releases) and the [CHANGELOG](CHANGELOG.md).
 
 <img src="docs/icon.png" width="96" align="right" alt="SysPulse icon">
 
@@ -26,7 +26,7 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **GPU load** — read straight from the system, no permissions and no `powermetrics`. Apple Silicon reports one figure for the whole GPU, so there is no per-core breakdown to show.
 - **Memory of every kind** — one segmented bar with used / total next to it: blue for app memory, orange for wired, violet for compressed, neutral gray for the file cache, and the empty tail is what is free. Colour here says *which kind*, not *how much*, and the steps are validated for colour-blind separation and contrast in both light and dark. Turn on the breakdown to see every kind as numbers, plus swap and the system's memory-pressure level; hovering the RAM label reports that level at any time.
 - **Hover to learn** — hovering a segment of the memory bar names it and gives its size; hovering a row of the breakdown explains what that kind of memory actually is and what it is for, down to what Normal, Warning and Critical pressure mean. Handy if you have ever wondered why a healthy Mac shows almost no free memory.
-- **Free disk space** — a row per mounted local volume with the used fraction as a bar and the free space in figures; hover the bar for how much is used and the volume's full name. On APFS and HFS+ the figure matches Finder's, purgeable snapshot space included; on exFAT and FAT — what most external drives arrive formatted as — it falls back to the plain free-space count, which is the only one those filesystems keep. Click a volume's bar to open it in Finder. Hide the volumes you don't care about in settings.
+- **Free disk space** — a row per mounted local volume with the used fraction as a bar and the free space in figures; hover the bar for how much is used and the volume's full name. On APFS and HFS+ the figure matches Finder's, purgeable snapshot space included; on exFAT and FAT — what most external drives arrive formatted as — it falls back to the plain free-space count, which is the only one those filesystems keep. The hover tip also names the filesystem — APFS, ExFAT, Mac OS Extended — which is what decided how that free space was counted. Click a volume's bar to open it in Finder, and eject an external one with the button at the end of its row; that column appears only while there is something to eject. Hide the volumes you don't care about in settings.
 - **Folder sizes** — track any folders you like: add them in Folders by typing a path or picking one in Finder, give each a scan interval (never, or every minute up to once a day), and their sizes join the panel as a block of their own, under a "Folders" heading that carries the total of all of them. A button on the heading rescans every folder at once, and each folder has one of its own. Set an alias and the panel shows that instead of the folder name. Hovering a folder reports its path, its scan interval, when it was last measured and the ten largest things inside it — subfolders and loose files ranked together, folders marked with a trailing slash — enough to see what is actually eating the space. Click a folder name to open it in Finder. Results are cached, so a size is on screen the moment the app starts, without waiting for a fresh walk.
 - **Load colors** — bars run green → amber → red as a metric fills up, so a busy core or a full disk catches the eye without reading a single number.
 - **Menu bar line** — CPU load by default, with memory and disk available too; the readings use fixed-width digits so the neighbouring menu bar icons never shuffle, and the tooltip always carries the full summary. Switch all three off and a small icon takes their place, so the menu never becomes unreachable while the panel is hidden.
@@ -40,17 +40,14 @@ The semi-transparent floating window over a desktop; the same numbers live in th
 - **Everything is remembered** — chosen metrics, hidden volumes, window position, compact mode, alignment, opacity and visibility all survive app restarts.
 - **Launch at login** — toggle in the menu (uses the system `SMAppService`).
 - **Update check** — once a day SysPulse asks GitHub whether a newer release is out. If one is, the top line of the menu says so and opens the release page; it never downloads or replaces anything by itself. Check by hand any time, or turn the automatic check off entirely.
-- **10 languages** — English (default), Русский, Español, Deutsch, Français, Italiano, Português, 中文, 日本語, 한국어. Switchable from the menu.
+- **11 languages** — English (default), Русский, Español, Deutsch, Français, Italiano, Português (Brasil), Português (Portugal), 中文, 日本語, 한국어. Switchable from the menu.
 
 ## Plans
 
-- **Eject external drives** — an eject button on the row of every removable volume, so unmounting a drive is one click where you are already looking at it, not a trip to Finder.
-- **Filesystem in the disk tooltip** — hovering a volume would also say what it is formatted as: APFS, HFS+, exFAT, FAT32. That one word explains on the spot why an external drive reports its free space differently from the boot volume, instead of leaving the answer buried in this README.
 - **Nesting-aware folder totals** — when one tracked folder sits inside another, its bytes are currently counted twice: the "Folders" heading simply adds every folder up. The plan is to work out which folders contain which and count the shared space once, so the total is the space actually occupied rather than the sum of the rows.
 - **Scroll to a newly added folder** — "Add folder" appends an empty row at the bottom of the list, and once the list is taller than the window that row lands out of sight, so the button looks as if it did nothing at all. Adding a folder should scroll the list down to it.
+- **Sort the folder list** — folders appear in the panel in the order they were added, and that is the only order there is. A choice between sorting by size, by name, or by the order added would let the biggest ones rise to the top, which is usually the reason for watching them at all.
 - **History and a chart** — free disk space and folder sizes are measured every few minutes and every reading is then thrown away. Kept in a small local log, the same numbers become a line you can read at a glance: whether a disk is filling steadily or lost 40 GB overnight, and which tracked folder was the one that grew. The log would stay on the machine, like everything else the app records.
-- **Dismiss the hover tooltip when the panel is dragged** — dragging the panel to a new spot leaves whatever tooltip was showing (CPU, memory, a disk) hanging in its old position instead of disappearing with the move.
-- **European Portuguese in the app** — the interface currently speaks Brazilian Portuguese, while this README is already written in the European variant. The plan is a separate pt-PT translation offered alongside pt-BR in the language menu, so the two match.
 
 ## Privacy
 

@@ -59,6 +59,12 @@ struct VolumeUsage: Identifiable, Equatable, Sendable {
     let isRoot: Bool    // загрузочный том: показываем под общей меткой «Диск»
     let total: UInt64
     let free: UInt64
+    /// Как отформатирован том — «APFS», «ExFAT», «Mac OS Extended (Journaled)».
+    /// Строку выдаёт сама система и уже на языке системы; пустая, если не отдала.
+    let format: String
+    /// Внешний том — тот, который можно извлечь. Ровно этим руководствуется и
+    /// Finder, рисуя стрелку извлечения.
+    let isExternal: Bool
 
     var used: UInt64 { total > free ? total - free : 0 }
     var usedFraction: Double { total > 0 ? Double(used) / Double(total) : 0 }
@@ -237,6 +243,7 @@ private enum DiskSampler {
             .volumeAvailableCapacityForImportantUsageKey,
             .volumeAvailableCapacityKey,
             .volumeIsBrowsableKey, .volumeIsLocalKey,
+            .volumeLocalizedFormatDescriptionKey, .volumeIsInternalKey,
         ]
         let urls = FileManager.default.mountedVolumeURLs(
             includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]
@@ -266,7 +273,16 @@ private enum DiskSampler {
                 name: values.volumeName ?? url.lastPathComponent,
                 isRoot: url.path == "/",
                 total: UInt64(total),
-                free: UInt64(max(0, free))
+                free: UInt64(max(0, free)),
+                format: values.volumeLocalizedFormatDescription ?? "",
+                // Съёмность спрашиваем не про носитель, а про размещение.
+                // volumeIsRemovable — это про носитель, вынимаемый из привода
+                // (карта, диск), и у обычного USB-диска он false; ejectable у
+                // проверенного здесь USB тоже false. Внешним же его делает
+                // ровно isInternal == false, и именно на это смотрит Finder.
+                // nil трактуем как внутренний: не предлагать извлечение
+                // безопаснее, чем предложить извлечь системный том.
+                isExternal: values.volumeIsInternal == false
             ))
         }
         // Загрузочный том всегда первым, остальные по имени — порядок не должен
@@ -416,6 +432,25 @@ final class SystemMonitor: ObservableObject {
         }
     }
 
+
+    /// Отмонтировать и извлечь внешний том. Работа лезет на диск и может ждать
+    /// процессы, держащие на нём файлы, поэтому идёт не на главном потоке —
+    /// иначе панель замирает на всё это время. Об отказе сообщаем вызывающему:
+    /// решать, как показать его пользователю, не дело монитора.
+    func eject(_ volume: VolumeUsage, onFailure: @escaping @MainActor (String) -> Void) {
+        let url = URL(fileURLWithPath: volume.id)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try NSWorkspace.shared.unmountAndEjectDevice(at: url)
+            } catch {
+                await onFailure(error.localizedDescription)
+                return
+            }
+            // Тома опрашиваются раз в 5 секунд; строка ушла бы и сама, но ждать
+            // её ухода после собственного клика неприятно.
+            await self?.refreshVolumes()
+        }
+    }
 
     private func refreshVolumes() {
         guard !screenshotMode else { return }

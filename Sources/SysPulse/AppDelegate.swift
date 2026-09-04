@@ -629,6 +629,13 @@ extension AppDelegate: NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, window === panel else { return }
+        // Панель уезжает — подсказка должна уехать вместе с ней. Своей мыши она
+        // не видит: перетаскивание фона AppKit крутит в собственном цикле
+        // событий, mouseExited до области наведения не доходит, и подсказка
+        // осталась бы висеть на прежнем месте экрана. Уведомление приходит на
+        // каждый шаг перетаскивания, так что повторный вызов здесь и есть
+        // защита от повторного показа посреди движения.
+        TooltipPanel.shared.cancel()
         lastPanelFrame = panel.frame
     }
 }

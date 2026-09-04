@@ -3,6 +3,36 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.9.0] — 2026-09-04
+
+### Added
+- An eject button on every external volume's row. Whether a volume is external
+  is decided by `volumeIsInternal`, the same signal Finder goes by — not by
+  `volumeIsRemovable` or `volumeIsEjectable`, which describe media that comes
+  out of a drive and are both false for an ordinary USB disk. The button's
+  column appears only while there is something to eject, so the panel carries no
+  empty margin the rest of the time, and it lines up with the folder rescan
+  buttons. Unmounting runs off the main thread, because it can wait on processes
+  holding files; a refusal is reported with the system's own explanation rather
+  than leaving the volume silently in place.
+- The disk hover tip names the filesystem — APFS, ExFAT, Mac OS Extended. It
+  sits right under the volume name, where it explains the figures below it: it
+  is the reason free space on an external drive is counted differently from the
+  boot volume.
+- European Portuguese as an eleventh language, alongside the Brazilian
+  Portuguese already there; the two are now named in the menu as Português
+  (Brasil) and Português (Portugal). A separate table rather than an edit to the
+  existing one: the variants differ in vocabulary (ficheiro / arquivo,
+  definições / ajustes), in grammar ("a analisar" against "analisando"), and in
+  at least one false friend — *apelido* means "surname" in Portugal, so the
+  alias field is named differently there.
+
+### Fixed
+- Dragging the panel left the open hover tip behind at its old place on screen.
+  A background drag runs in AppKit's own event loop, so `mouseExited` never
+  reaches the tracking area and the tip had nothing to close it; it now follows
+  the window's move notification.
+
 ## [0.8.0] — 2026-08-30
 
 ### Fixed
@@ -273,6 +303,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.9.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.9.0
 [0.8.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.8.0
 [0.7.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.7.0
 [0.6.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.6.0

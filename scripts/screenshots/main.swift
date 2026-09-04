@@ -46,8 +46,12 @@ MainActor.assumeIsolated {
         ),
     ]
     let fakeVolumes = [
-        VolumeUsage(id: "/", name: "Macintosh HD", isRoot: true, total: 994_662_584_320, free: 312_400_000_000),
-        VolumeUsage(id: "/Volumes/Backup", name: "Backup", isRoot: false, total: 2_000_000_000_000, free: 640_000_000_000),
+        VolumeUsage(id: "/", name: "Macintosh HD", isRoot: true, total: 994_662_584_320,
+                    free: 312_400_000_000, format: "APFS", isExternal: false),
+        // Второй том нарочно внешний: только у такого есть стрелка извлечения,
+        // и на снимках README её должно быть видно.
+        VolumeUsage(id: "/Volumes/Backup", name: "Backup", isRoot: false, total: 2_000_000_000_000,
+                    free: 640_000_000_000, format: "ExFAT", isExternal: true),
     ]
 
     // Композиция вью на градиентном «обое», чтобы была видна полупрозрачность

@@ -125,6 +125,25 @@ struct ContentView: View {
     private var coreHeight: CGFloat { monitor.compact ? 11 : 15 }
     private var rowWidth: CGFloat { labelWidth + barWidth + valueWidth + rowSpacing * 2 }
 
+    /// Размер кнопки — тот же, что у кнопки обхода папок: обе живут в одной
+    /// правой колонке, и разного размера они бы там смотрелись случайными.
+    private var buttonSize: CGFloat { monitor.compact ? 10 : 12 }
+
+    /// Колонка под стрелку извлечения появляется, только когда есть что
+    /// извлекать. Держать её всегда — значит нести пустое поле справа ради
+    /// кнопки, которой у большинства не будет никогда; появляется она в тот же
+    /// момент, когда в панели прибавляется строка тома, то есть панель и так
+    /// меняет размер.
+    private var ejectColumn: CGFloat {
+        monitor.showDisks && monitor.visibleVolumes.contains(where: \.isExternal)
+            ? buttonSize + rowSpacing
+            : 0
+    }
+
+    /// Полная ширина строки — по ней равняются все блоки панели, чтобы правый
+    /// край был один на всех, а кнопки папок и стрелки томов стояли в колонку.
+    private var fullRowWidth: CGFloat { rowWidth + ejectColumn }
+
     private var labelFont: Font { .system(size: monitor.compact ? 9 : 11, weight: .semibold) }
     private var valueFont: Font {
         .system(size: monitor.compact ? 9 : 10, weight: .medium).monospacedDigit()
@@ -172,7 +191,7 @@ struct ContentView: View {
     // При правом выравнивании строка зеркалится: метка уезжает вправо, значение влево.
     private func row<Bar: View>(
         label: String, dimLabel: Bool = false, labelTip: String? = nil,
-        value: String, @ViewBuilder bar: () -> Bar
+        value: String, eject: VolumeUsage? = nil, @ViewBuilder bar: () -> Bar
     ) -> some View {
         // Подсказка висит на метке, а не на всей строке: у полоски памяти свои
         // подсказки на сегментах, и вложенные области наведения спорили бы.
@@ -191,6 +210,7 @@ struct ContentView: View {
 
         return HStack(spacing: rowSpacing) {
             if monitor.alignRight {
+                ejectSlot(eject)
                 valueText
                 bar()
                 labelText
@@ -198,7 +218,43 @@ struct ContentView: View {
                 labelText
                 bar()
                 valueText
+                ejectSlot(eject)
             }
+        }
+    }
+
+    /// Правая колонка строки: стрелка у внешнего тома, пустое место у всех
+    /// остальных строк — иначе колонки разъедутся, — и совсем ничего, пока
+    /// извлекать нечего.
+    @ViewBuilder
+    private func ejectSlot(_ volume: VolumeUsage?) -> some View {
+        if ejectColumn > 0 {
+            if let volume, volume.isExternal {
+                ejectButton(volume)
+            } else {
+                Color.clear.frame(width: buttonSize, height: 1)
+            }
+        }
+    }
+
+    private func ejectButton(_ volume: VolumeUsage) -> some View {
+        Image(systemName: "eject.fill")
+            .font(.system(size: monitor.compact ? 8 : 9, weight: .semibold))
+            .foregroundStyle(textColor.opacity(0.75))
+            .frame(width: buttonSize, height: buttonSize)
+            .hoverTip("\(l10n.t(.eject)) \(volume.name)")
+            .overlay { PanelButton { eject(volume) } }
+    }
+
+    /// Отказ в извлечении показываем: молча оставить том на месте хуже, чем
+    /// сказать, почему он остался. Обычная причина — открытый файл на нём.
+    private func eject(_ volume: VolumeUsage) {
+        monitor.eject(volume) { message in
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = "\(l10n.t(.ejectFailed)) — \(volume.name)"
+            alert.informativeText = message
+            alert.runModal()
         }
     }
 
@@ -232,18 +288,26 @@ struct ContentView: View {
         // В строке видно свободное место, поэтому в подсказке — занятое, вместе
         // с полным именем тома: в узкой колонке метка обрезается. Последней
         // строкой — что по полоске можно кликнуть: иначе об этом никто не узнает.
-        let tip = """
-            \(volume.name)
+        var lines = [volume.name]
+        // Формат стоит сразу под именем: он объясняет цифры ниже. На exFAT и FAT
+        // свободное место считается иначе, чем на APFS, и одно слово здесь
+        // избавляет от вопроса, почему у внешнего диска оно «какое-то не такое».
+        if !volume.format.isEmpty {
+            lines.append(volume.format)
+        }
+        lines.append("""
             \(l10n.t(.used)): \(Fmt.disk(volume.used)) / \(Fmt.disk(volume.total)) \
             (\(Fmt.percent(volume.usedFraction)))
             \(l10n.t(.freeMemory)): \(Fmt.disk(volume.free))
 
             \(l10n.t(.openInFinder))
-            """
+            """)
+        let tip = lines.joined(separator: "\n")
         return row(
             label: volume.isRoot ? l10n.t(.disk) : volume.name,
             dimLabel: !volume.isRoot,
-            value: "\(Fmt.disk(volume.free)) \(l10n.t(.free))"
+            value: "\(Fmt.disk(volume.free)) \(l10n.t(.free))",
+            eject: volume
         ) {
             bar(fraction: volume.usedFraction, tip: tip)
                 // Кликается только сама полоска, не вся строка: иначе панель
@@ -264,7 +328,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: monitor.compact ? 2 : 3) {
             Rectangle()
                 .fill(textColor.opacity(0.15))
-                .frame(width: rowWidth, height: 1)
+                .frame(width: fullRowWidth, height: 1)
                 .padding(.top, monitor.compact ? 1 : 2)
             foldersHeader
             ForEach(folders.folders) { folder in
@@ -294,7 +358,9 @@ struct ContentView: View {
                 button
             }
         }
-        .frame(width: rowWidth)
+        // Строка папок равняется по ПОЛНОЙ ширине: тогда её кнопка встаёт в ту
+        // же колонку, что стрелка извлечения, а размер — под остальные значения.
+        .frame(width: fullRowWidth)
     }
 
     /// Строка папки: псевдоним (если задан) или имя, размер и кнопка обхода.
@@ -341,7 +407,7 @@ struct ContentView: View {
         }
         .font(detailFont)
         .foregroundStyle(textColor.opacity(0.7))
-        .frame(width: rowWidth)
+        .frame(width: fullRowWidth)
     }
 
     /// Пока обход идёт, кнопка гаснет и не нажимается.
