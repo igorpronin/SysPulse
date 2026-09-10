@@ -10,6 +10,8 @@ swiftc \
     Sources/SysPulse/SystemMonitor.swift \
     Sources/SysPulse/Localization.swift \
     Sources/SysPulse/Folders.swift \
+    Sources/SysPulse/History.swift \
+    Sources/SysPulse/HistoryView.swift \
     Sources/SysPulse/UpdateChecker.swift \
     Sources/SysPulse/Tooltip.swift \
     Sources/SysPulse/PanelButton.swift \

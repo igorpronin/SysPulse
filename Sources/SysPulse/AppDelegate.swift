@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var metricsSettingsWindow: NSWindow?
     private var foldersSettingsWindow: NSWindow?
     private var uiSettingsWindow: NSWindow?
+    private var historyWindow: NSWindow?
     private var lastPanelFrame: NSRect = .zero
     private let monitor = SystemMonitor()
     private let folders = FolderTracker()
@@ -192,6 +193,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         foldersSettingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// График истории. Окно одно на все папки и переключается на ту, чью иконку
+    /// нажали: держать по окну на папку значило бы разводить их по экрану
+    /// пачками, а сравнивать две папки рядом никто не просил.
+    func openFolderHistory(_ folder: TrackedFolder) {
+        let content = NSHostingController(
+            rootView: FolderHistoryView(folder: folder, history: folders.history)
+        )
+        if let window = historyWindow {
+            window.contentViewController = content
+        } else {
+            let window = NSWindow(contentViewController: content)
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            historyWindow = window
+        }
+        historyWindow?.title = "\(folder.title) — \(L10n.shared.t(.history))"
+        NSApp.activate(ignoringOtherApps: true)
+        historyWindow?.makeKeyAndOrderFront(nil)
     }
 
     func openUISettings() {

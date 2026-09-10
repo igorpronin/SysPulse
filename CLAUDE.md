@@ -128,6 +128,43 @@ only when the user themselves adds a protected folder (Desktop, Documents,
 Downloads). Denied access surfaces as `noAccess`, never as a crash or a zero.
 The three core metrics still need no permissions and must stay that way.
 
+## Folder size history
+
+`History.swift` records every completed scan; `HistoryView.swift` draws it. The
+store is JSON under `~/Library/Application Support/SysPulse/history/`:
+`index.json` maps each folder (id, path, alias, tracked flag) to its own file of
+`{"t": ISO8601, "s": bytes}` pairs. Dates are ISO 8601 and keys are short on
+purpose — the files are meant to be read and edited by hand, and there are
+thousands of points in them, not millions. No SQLite; that was a deliberate call.
+
+`compact` bounds the files: the last two days keep every measurement, older
+points thin to the last one in each hour, nothing older than 100 days survives.
+Without it a folder scanned every minute reaches 130k points a quarter (~5 MB),
+and even the quarter chart cannot draw a thousand.
+
+Recording hangs off the single place a scan result lands (`FolderTracker.rescan`
+completion), so the timer path and the manual button both go through it. Failed
+scans are NOT recorded: a zero would read as "the folder emptied out".
+
+Deletion is asymmetric on purpose. `FolderTracker.remove(id:)` — the user's own
+action — calls `history.forget`, which deletes the file. `pruneMissingFolders`
+does not: it also fires for a folder on an unmounted volume, and an unplugged
+drive must not destroy months of history. `touchIndex` adopts an untracked
+entry with the same path, so re-adding a folder continues its old chart under a
+new UUID.
+
+`HistoryStore(directory:)` exists for tests. Overriding `HOME` does NOT work —
+`NSHomeDirectory()` reads the passwd entry for a non-sandboxed process and
+ignores the variable; a test that assumed otherwise wrote into the owner's real
+history. Point the seam at a scratch directory instead.
+
+Chart rules that are not free choices: the size axis does not start at zero (a
+300 GB folder growing 40 GB overnight would be a flat line otherwise), and
+BECAUSE of that there is no area fill — a filled area under a shifted axis
+misstates magnitude. Ranges unlock only once the data reaches past the previous,
+shorter range, so no button ever opens an empty plot. The line uses the same
+validated `Palette.app` steps as the memory bar, picked by `colorScheme`.
+
 ## Update check — the only network code
 
 `UpdateChecker.swift` is the sole place in the app that touches the network:

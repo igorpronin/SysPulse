@@ -375,7 +375,11 @@ struct ContentView: View {
             value = "…"
         }
         let tip = folderTip(folder, scan)
-        let indent: CGFloat = monitor.compact ? 5 : 7
+        // Отступ минимальный: строка папки начинается почти вровень с
+        // заголовком «Folders», иконка графика лишь чуть сдвинута от его края.
+        // Раньше отступ был больше, но тогда строку открывало имя — теперь её
+        // открывает иконка, и большой сдвиг оторвал бы её от блока.
+        let indent: CGFloat = monitor.compact ? 0 : 1
         // Кликается имя папки — как у дисков кликается полоска. Размер и кнопку
         // обхода не трогаем: у кнопки своё действие, а за остаток строки панель
         // ещё должно быть за что таскать.
@@ -390,15 +394,18 @@ struct ContentView: View {
             }
         let size = Text(value).hoverTip(tip)
         let button = rescanButton(busy: folders.isScanning(folder)) { folders.rescan(folder) }
+        let chart = historyButton(folder)
         return HStack(spacing: rowSpacing) {
             if monitor.alignRight {
                 button
                 size
                 Spacer(minLength: 4)
                 name
+                chart
                 Color.clear.frame(width: indent, height: 1)
             } else {
                 Color.clear.frame(width: indent, height: 1)
+                chart
                 name
                 Spacer(minLength: 4)
                 size
@@ -408,6 +415,22 @@ struct ContentView: View {
         .font(detailFont)
         .foregroundStyle(textColor.opacity(0.7))
         .frame(width: fullRowWidth)
+    }
+
+    /// Иконка графика слева от имени папки. Стоит перед именем, а не в правой
+    /// колонке: справа уже живёт кнопка обхода, и две кнопки подряд читались бы
+    /// как одна пара, хотя действия у них разные.
+    private func historyButton(_ folder: TrackedFolder) -> some View {
+        Image(systemName: "chart.xyaxis.line")
+            .font(.system(size: monitor.compact ? 8 : 9, weight: .semibold))
+            .foregroundStyle(textColor.opacity(0.75))
+            .frame(width: buttonSize, height: buttonSize)
+            .hoverTip(l10n.t(.history))
+            .overlay {
+                PanelButton {
+                    (NSApp.delegate as? AppDelegate)?.openFolderHistory(folder)
+                }
+            }
     }
 
     /// Пока обход идёт, кнопка гаснет и не нажимается.

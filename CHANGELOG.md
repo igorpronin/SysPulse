@@ -3,6 +3,35 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.10.0] — 2026-09-10
+
+### Added
+- Size history for tracked folders, with a chart. Every completed scan is now
+  recorded instead of overwriting the last reading, so the question "is this
+  folder growing, or was it always this big?" finally has an answer. The chart
+  icon beside a folder's name opens a window with day, week, month and quarter
+  ranges; a range the data does not reach yet stays greyed out and says why, so
+  nothing offers an empty plot. Hovering the line reports the measurement under
+  the pointer.
+- History is stored as plain JSON under Application Support — `index.json` maps
+  each folder (identifier, path, alias) to its own file of date/size pairs.
+  Readable and editable by hand, which for a home utility beats query speed:
+  there are thousands of points here, not millions. The last two days keep every
+  measurement, older points thin to one an hour and nothing older than 100 days
+  is kept — without that, a folder scanned every minute would pile up 130,000
+  points a quarter, and even the quarter chart cannot draw a thousand.
+- Removing a folder yourself deletes its history with it. A folder that merely
+  went missing keeps it — `pruneMissingFolders` also fires for a folder on an
+  unmounted volume, and history should not be lost to an unplugged drive. Re-add
+  the same path later and the chart continues where it left off.
+
+### Changed
+- The chart's size axis deliberately does not start at zero, and there is no
+  area fill under the line. A 300 GB folder that grew 40 GB overnight would be a
+  nearly flat line against a zero axis — exactly the change the chart exists to
+  show. A filled area under a shifted axis would then misstate magnitude, so the
+  line stands alone.
+
 ## [0.9.0] — 2026-09-04
 
 ### Added
@@ -303,6 +332,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.10.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.10.0
 [0.9.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.9.0
 [0.8.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.8.0
 [0.7.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.7.0

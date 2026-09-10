@@ -122,7 +122,18 @@ enum FolderScanner {
 
 @MainActor
 final class FolderTracker: ObservableObject {
-    @Published private(set) var folders: [TrackedFolder] = [] { didSet { saveFolders() } }
+    /// История размеров: своё хранилище, потому что у неё своя жизнь на диске
+    /// (JSON в Application Support) и свой срок хранения — кэш обхода помнит
+    /// только последнее измерение, история помнит все.
+    let history = HistoryStore()
+
+    @Published private(set) var folders: [TrackedFolder] = [] {
+        didSet {
+            saveFolders()
+            guard !frozen else { return }
+            history.syncTracked(folders)
+        }
+    }
     @Published private(set) var scans: [String: FolderScan] = [:] { didSet { saveScans() } }
     @Published private(set) var scanning: Set<UUID> = []
 
@@ -198,6 +209,11 @@ final class FolderTracker: ObservableObject {
     func remove(id: UUID) {
         folders.removeAll { $0.id == id }
         scans.removeValue(forKey: id.uuidString)
+        // Убрал сам пользователь — историю сносим вместе с записью. Это
+        // сознательно отличается от автоматического снятия с наблюдения в
+        // pruneMissingFolders: там папка могла всего лишь уехать с
+        // отмонтированным томом, и историю ей ещё продолжать.
+        history.forget(id: id)
     }
 
     func setAlias(_ alias: String, for folder: TrackedFolder) {
@@ -257,6 +273,13 @@ final class FolderTracker: ObservableObject {
                 guard let self else { return }
                 self.scans[id.uuidString] = result
                 self.scanning.remove(id)
+                // История пополняется на КАЖДОМ успешном обходе — и по
+                // расписанию, и по кнопке: это единственное место, куда
+                // приходит результат, и оба пути ведут сюда. Неудачный обход не
+                // записываем: нулём в графике он читался бы как «папка
+                // опустела», а не «папку не удалось прочесть».
+                guard !result.failed else { return }
+                self.history.record(size: result.size, for: folder, at: result.scannedAt)
             }
         }
     }
