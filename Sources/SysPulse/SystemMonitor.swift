@@ -65,6 +65,14 @@ struct VolumeUsage: Identifiable, Equatable, Sendable {
     /// Внешний том — тот, который можно извлечь. Ровно этим руководствуется и
     /// Finder, рисуя стрелку извлечения.
     let isExternal: Bool
+    /// UUID тома из файловой системы — единственный его признак, переживающий
+    /// перемонтирование. Путь монтирования для этого не годится: том с занятым
+    /// именем встаёт как «/Volumes/Name 1». Пустой у файловых систем, которые
+    /// UUID не ведут (FAT).
+    let uuid: String?
+
+    /// Ключ, под которым том живёт в истории.
+    var historyKey: String { uuid ?? id }
 
     var used: UInt64 { total > free ? total - free : 0 }
     var usedFraction: Double { total > 0 ? Double(used) / Double(total) : 0 }
@@ -244,6 +252,7 @@ private enum DiskSampler {
             .volumeAvailableCapacityKey,
             .volumeIsBrowsableKey, .volumeIsLocalKey,
             .volumeLocalizedFormatDescriptionKey, .volumeIsInternalKey,
+            .volumeUUIDStringKey,
         ]
         let urls = FileManager.default.mountedVolumeURLs(
             includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]
@@ -282,7 +291,8 @@ private enum DiskSampler {
                 // ровно isInternal == false, и именно на это смотрит Finder.
                 // nil трактуем как внутренний: не предлагать извлечение
                 // безопаснее, чем предложить извлечь системный том.
-                isExternal: values.volumeIsInternal == false
+                isExternal: values.volumeIsInternal == false,
+                uuid: values.volumeUUIDString
             ))
         }
         // Загрузочный том всегда первым, остальные по имени — порядок не должен
@@ -351,7 +361,12 @@ final class SystemMonitor: ObservableObject {
     private var screenshotMode = false
 
 
-    init() {
+    /// Хранилище истории общее с трекером папок: манифест один на всё
+    /// приложение, и двух владельцев у него быть не должно.
+    let history: HistoryStore
+
+    init(history: HistoryStore) {
+        self.history = history
         let ud = UserDefaults.standard
         func flag(_ key: String, default value: Bool) -> Bool {
             ud.object(forKey: key) as? Bool ?? value
@@ -458,6 +473,14 @@ final class SystemMonitor: ObservableObject {
             let sampled = DiskSampler.sample()
             guard let monitor = self else { return }
             await MainActor.run {
+                // История пишется на каждом опросе, а не только при изменении
+                // списка: занятое место меняется постоянно, а сам список —
+                // почти никогда, и запись «по изменению» пропустила бы всё.
+                // Частоту держит само хранилище — не чаще раза в час.
+                let now = Date()
+                for volume in sampled {
+                    monitor.history.recordVolume(volume, at: now)
+                }
                 guard monitor.volumes != sampled else { return }
                 monitor.volumes = sampled
             }

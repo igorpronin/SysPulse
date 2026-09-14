@@ -11,16 +11,32 @@ import SwiftUI
 // столбиков), но заливка от него читалась бы как «объём», поэтому её нет:
 // закрашенная площадь врала бы о величине.
 
-struct FolderHistoryView: View {
-    let folder: TrackedFolder
+/// Окно показывает историю чего угодно, у чего есть ключ: папки или тома.
+/// Своего типа для этого не заводим — окну нужны ровно заголовок, подпись и
+/// ключ, а знать, папка перед ним или диск, ему незачем.
+struct HistoryChartView: View {
+    let title: String
+    let subtitle: String
+    let key: String
     @ObservedObject var history: HistoryStore
     @ObservedObject var l10n = L10n.shared
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var range: HistoryRange = .day
+    @State private var range: HistoryRange
     @State private var hovered: HistoryPoint?
 
-    private var all: [HistoryPoint] { history.points(for: folder.id) }
+    init(title: String, subtitle: String, key: String, history: HistoryStore) {
+        self.title = title
+        self.subtitle = subtitle
+        self.key = key
+        self.history = history
+        // Диапазон берём запомненный для этого же ключа: у одной папки смотрят
+        // суточную рябь, у другой — квартальный тренд, и сбрасывать выбор на
+        // сутки при каждом открытии значит переключать его заново каждый раз.
+        _range = State(initialValue: history.range(for: key))
+    }
+
+    private var all: [HistoryPoint] { history.points(for: key) }
 
     /// Шаг палитры под подложку окна: те же два цвета, что у памяти в панели,
     /// оба проверены валидатором на контраст к светлой и тёмной подложке.
@@ -39,20 +55,23 @@ struct FolderHistoryView: View {
         }
         .padding(16)
         .frame(width: 560)
-        // Диапазон, переставший быть доступным (окно открыли на другой папке),
-        // не должен остаться выбранным: иначе график пуст без объяснения.
-        .onChange(of: folder.id) { _ in
-            range = .day
-            hovered = nil
+        // Запомненный диапазон мог стать недоступным: историю подрезали, или
+        // выбор остался от папки с куда более долгой историей. Тогда берём
+        // самый длинный из доступных — но не сбрасываем на сутки, это потеряло
+        // бы намерение пользователя целиком.
+        .onAppear {
+            guard !isAvailable(range) else { return }
+            range = HistoryRange.allCases.last { isAvailable($0) } ?? .day
         }
+        .onChange(of: range) { history.setRange($0, for: key) }
     }
 
     // MARK: - Части
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(folder.title).font(.headline)
-            Text(folder.path)
+            Text(title).font(.headline)
+            Text(subtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

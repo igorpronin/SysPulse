@@ -19,7 +19,7 @@ enum L10nKey: String {
     case eject, ejectFailed
     // График истории размеров папки
     case history, historyDay, historyWeek, historyMonth, historyQuarter
-    case historyEmpty, historyChange, historyNotEnough
+    case historyEmpty, historyChange, historyNotEnough, historyClick
     case largestItems, scanning, noAccess, lastScan
     case scanNever, scanMinute, scan5Minutes, scan10Minutes, scanHourly, scanDaily
     case floatingPanel, alwaysOnTop, compactPanel
@@ -151,6 +151,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "No measurements yet. The size is recorded on every scan.",
             .historyChange: "change",
             .historyNotEnough: "Not enough history for this range yet",
+            .historyClick: "Click for size history",
             .aboutText: "Real-time monitor of CPU load (per core), memory of every kind and free disk space in a small floating window.",
         ],
         "ru": [
@@ -242,6 +243,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Измерений пока нет. Размер записывается при каждом обходе.",
             .historyChange: "изменение",
             .historyNotEnough: "Для этого диапазона истории пока не хватает",
+            .historyClick: "Клик — история размера",
             .aboutText: "Мониторинг в реальном времени: загрузка процессора (по ядрам), оперативная память всех видов и свободное место на дисках в маленьком плавающем окошке.",
         ],
         "es": [
@@ -333,6 +335,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Aún no hay mediciones. El tamaño se registra en cada análisis.",
             .historyChange: "cambio",
             .historyNotEnough: "Todavía no hay historial suficiente para este intervalo",
+            .historyClick: "Clic para ver el historial de tamaño",
             .aboutText: "Monitor en tiempo real de la carga de CPU (por núcleo), la memoria de todo tipo y el espacio libre en disco en una pequeña ventana flotante.",
         ],
         "de": [
@@ -424,6 +427,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Noch keine Messungen. Die Größe wird bei jedem Durchlauf festgehalten.",
             .historyChange: "Änderung",
             .historyNotEnough: "Noch nicht genug Verlauf für diesen Zeitraum",
+            .historyClick: "Klicken für den Größenverlauf",
             .aboutText: "Echtzeit-Überwachung von CPU-Auslastung (pro Kern), Speicher aller Arten und freiem Festplattenplatz in einem kleinen schwebenden Fenster.",
         ],
         "fr": [
@@ -515,6 +519,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Aucune mesure pour l’instant. La taille est enregistrée à chaque analyse.",
             .historyChange: "évolution",
             .historyNotEnough: "Pas encore assez d’historique pour cette période",
+            .historyClick: "Cliquer pour l’historique de taille",
             .aboutText: "Surveillance en temps réel de la charge CPU (par cœur), de la mémoire sous toutes ses formes et de l'espace disque libre dans une petite fenêtre flottante.",
         ],
         "it": [
@@ -606,6 +611,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Ancora nessuna misurazione. La dimensione viene registrata a ogni analisi.",
             .historyChange: "variazione",
             .historyNotEnough: "Cronologia ancora insufficiente per questo periodo",
+            .historyClick: "Clic per la cronologia delle dimensioni",
             .aboutText: "Monitoraggio in tempo reale del carico della CPU (per core), della memoria di ogni tipo e dello spazio libero su disco in una piccola finestra flottante.",
         ],
         "pt": [
@@ -697,6 +703,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Ainda sem medições. O tamanho é registrado em cada análise.",
             .historyChange: "variação",
             .historyNotEnough: "Ainda não há histórico suficiente para este período",
+            .historyClick: "Clique para ver o histórico de tamanho",
             .aboutText: "Monitoramento em tempo real da carga da CPU (por núcleo), da memória de todos os tipos e do espaço livre em disco em uma pequena janela flutuante.",
         ],
         // Português europeu. Отдельная таблица, а не правка бразильской: разница
@@ -793,6 +800,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "Ainda sem medições. O tamanho é registado em cada análise.",
             .historyChange: "variação",
             .historyNotEnough: "Ainda não há histórico suficiente para este período",
+            .historyClick: "Clique para ver o histórico de tamanho",
             .aboutText: "Monitorização em tempo real da carga do CPU (por núcleo), da memória de todos os tipos e do espaço livre em disco numa pequena janela flutuante.",
         ],
         "zh": [
@@ -884,6 +892,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "尚无测量数据。每次扫描都会记录大小。",
             .historyChange: "变化",
             .historyNotEnough: "此时间范围的历史数据还不够",
+            .historyClick: "点按查看大小历史",
             .aboutText: "在小型悬浮窗口中实时显示 CPU 负载（分核心）、各类内存占用和磁盘可用空间。",
         ],
         "ja": [
@@ -975,6 +984,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "まだ計測データがありません。サイズはスキャンごとに記録されます。",
             .historyChange: "変化",
             .historyNotEnough: "この期間の履歴はまだ足りません",
+            .historyClick: "クリックでサイズの履歴",
             .aboutText: "CPU使用率（コア別）、あらゆる種類のメモリ、ディスクの空き容量を小さなフローティングウィンドウでリアルタイムに表示します。",
         ],
         "ko": [
@@ -1066,6 +1076,7 @@ final class L10n: ObservableObject {
             .historyEmpty: "아직 측정값이 없습니다. 크기는 검사할 때마다 기록됩니다.",
             .historyChange: "변화",
             .historyNotEnough: "이 기간의 기록이 아직 충분하지 않습니다",
+            .historyClick: "클릭하면 크기 기록",
             .aboutText: "CPU 사용량(코어별), 모든 종류의 메모리, 디스크 여유 공간을 작은 플로팅 창에서 실시간으로 보여줍니다.",
         ],
     ]

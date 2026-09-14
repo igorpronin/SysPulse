@@ -24,9 +24,9 @@ struct HistoryPoint: Codable, Equatable, Sendable {
     }
 }
 
-/// Манифест: какой файл истории принадлежит какой папке. Записи снятых с
-/// наблюдения папок остаются здесь с `tracked: false` — по ним история
-/// подхватывается обратно, если ту же папку добавят снова.
+/// Манифест: какой файл истории кому принадлежит. Записи снятых с наблюдения
+/// папок остаются здесь с `tracked: false` — по ним история подхватывается
+/// обратно, если ту же папку добавят снова.
 struct HistoryIndex: Codable {
     struct Entry: Codable, Equatable {
         var id: String
@@ -35,6 +35,13 @@ struct HistoryIndex: Codable {
         var file: String
         var tracked: Bool
         var lastSeen: Date
+        /// «folder» или «volume». Optional, чтобы манифесты, записанные до
+        /// появления томов, продолжали читаться: синтезированный декодер не
+        /// подставляет значения по умолчанию, и одно новое обязательное поле
+        /// обнулило бы всю накопленную историю.
+        var kind: String?
+
+        var isVolume: Bool { kind == "volume" }
     }
 
     var version = 1
@@ -128,9 +135,11 @@ final class HistoryStore: ObservableObject {
 
     // MARK: - Чтение
 
-    /// Точки папки, по возрастанию даты. Файл читается один раз за сеанс.
-    func points(for id: UUID) -> [HistoryPoint] {
-        let key = id.uuidString
+    func points(for id: UUID) -> [HistoryPoint] { points(for: id.uuidString) }
+
+    /// Точки по ключу, по возрастанию даты. Файл читается один раз за сеанс.
+    /// Ключ у папки — её UUID, у тома — UUID файловой системы.
+    func points(for key: String) -> [HistoryPoint] {
         if let cached = cache[key] { return cached }
         guard let url = fileURL(for: key),
               let data = try? Data(contentsOf: url),
@@ -143,6 +152,28 @@ final class HistoryStore: ObservableObject {
         cache[key] = sorted
         return sorted
     }
+
+    // MARK: - Выбранный диапазон
+
+    /// Диапазон запоминается для каждой папки и тома отдельно: у одной папки
+    /// интересна суточная рябь, у другой — квартальный тренд, и сбрасывать
+    /// выбор на сутки при каждом открытии значит заставлять переключать заново.
+    /// Хранится в UserDefaults, а не в самом файле истории: это настройка
+    /// показа, а не измерение, и в файле с данными ей не место.
+    func range(for key: String) -> HistoryRange {
+        guard let raw = UserDefaults.standard.dictionary(forKey: Self.rangesKey)?[key] as? Int,
+              let stored = HistoryRange(rawValue: raw)
+        else { return .day }
+        return stored
+    }
+
+    func setRange(_ range: HistoryRange, for key: String) {
+        var stored = UserDefaults.standard.dictionary(forKey: Self.rangesKey) ?? [:]
+        stored[key] = range.rawValue
+        UserDefaults.standard.set(stored, forKey: Self.rangesKey)
+    }
+
+    private static let rangesKey = "HistoryRanges"
 
     // MARK: - Запись
 
@@ -160,6 +191,29 @@ final class HistoryStore: ObservableObject {
         // Манифест обновляем здесь же: путь или псевдоним могли поменяться, а
         // файл истории должен оставаться привязанным к той же папке.
         touchIndex(folder)
+        write(points, for: key)
+    }
+
+    /// Занятое место на ПОСТОЯННОМ томе, не чаще раза в час. Частоту не
+    /// выносим в настройки: свободное место меняется медленно, и точки чаще
+    /// часа не добавили бы к ответу «когда диск начал заполняться» ничего,
+    /// кроме веса файла. Час отмеряется от последней записанной точки, а не от
+    /// круглого часа: после перезапуска посреди часа история не прерывается.
+    ///
+    /// Подключаемые тома не пишем вовсе. У флешки, которую воткнули на час,
+    /// история — это набор разрозненных клякс, и отличить «диск заполнялся» от
+    /// «диск просто не был подключён» по ней нельзя.
+    func recordVolume(_ volume: VolumeUsage, at date: Date) {
+        guard !frozen, !volume.isExternal else { return }
+        let key = volume.historyKey
+        var points = points(for: key)
+        if let last = points.last, date.timeIntervalSince(last.date) < 3600 { return }
+
+        points.append(HistoryPoint(date: date, size: volume.used))
+        points = Self.compact(points, now: date)
+        cache[key] = points
+        revision &+= 1
+        touchVolume(volume)
         write(points, for: key)
     }
 
@@ -181,7 +235,10 @@ final class HistoryStore: ObservableObject {
     func syncTracked(_ folders: [TrackedFolder]) {
         let live = Set(folders.map(\.id.uuidString))
         var changed = false
-        for position in index.folders.indices where index.folders[position].tracked != live.contains(index.folders[position].id) {
+        // Записи томов пропускаем: их «под наблюдением» решает не список папок,
+        // а то, смонтирован ли том, и снимать с них флаг здесь было бы враньём.
+        for position in index.folders.indices where !index.folders[position].isVolume
+            && index.folders[position].tracked != live.contains(index.folders[position].id) {
             index.folders[position].tracked = live.contains(index.folders[position].id)
             changed = true
         }
@@ -201,7 +258,7 @@ final class HistoryStore: ObservableObject {
             index.folders[position].alias = folder.alias
             index.folders[position].tracked = true
             index.folders[position].lastSeen = Date()
-        } else if let position = index.folders.firstIndex(where: { !$0.tracked && $0.path == folder.path }) {
+        } else if let position = index.folders.firstIndex(where: { !$0.isVolume && !$0.tracked && $0.path == folder.path }) {
             // Ту же папку добавили заново — забираем её прежний файл под новый
             // идентификатор, чтобы график продолжился, а не начался с нуля.
             index.folders[position].id = key
@@ -212,10 +269,37 @@ final class HistoryStore: ObservableObject {
         } else {
             index.folders.append(HistoryIndex.Entry(
                 id: key, path: folder.path, alias: folder.alias,
-                file: "\(key).json", tracked: true, lastSeen: Date()
+                file: "\(key).json", tracked: true, lastSeen: Date(), kind: "folder"
             ))
         }
         if save { saveIndex() }
+    }
+
+    /// Запись тома в манифесте. Имя тома меняется (его переименовали), путь
+    /// монтирования меняется тоже, а ключ — нет, поэтому история продолжается.
+    private func touchVolume(_ volume: VolumeUsage) {
+        let key = volume.historyKey
+        if let position = index.folders.firstIndex(where: { $0.id == key }) {
+            index.folders[position].path = volume.id
+            index.folders[position].alias = volume.name
+            index.folders[position].tracked = true
+            index.folders[position].lastSeen = Date()
+        } else {
+            index.folders.append(HistoryIndex.Entry(
+                id: key, path: volume.id, alias: volume.name,
+                file: "volume-\(Self.safeName(key)).json",
+                tracked: true, lastSeen: Date(), kind: "volume"
+            ))
+        }
+        saveIndex()
+    }
+
+    /// В имя файла ключ попадает как есть только когда он UUID. Если файловая
+    /// система UUID не ведёт, ключом становится путь монтирования, а слэш в
+    /// имени файла — это уже другой каталог.
+    private static func safeName(_ key: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        return String(key.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" })
     }
 
     private func fileURL(for key: String) -> URL? {

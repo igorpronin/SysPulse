@@ -47,11 +47,11 @@ MainActor.assumeIsolated {
     ]
     let fakeVolumes = [
         VolumeUsage(id: "/", name: "Macintosh HD", isRoot: true, total: 994_662_584_320,
-                    free: 312_400_000_000, format: "APFS", isExternal: false),
+                    free: 312_400_000_000, format: "APFS", isExternal: false, uuid: nil),
         // Второй том нарочно внешний: только у такого есть стрелка извлечения,
         // и на снимках README её должно быть видно.
         VolumeUsage(id: "/Volumes/Backup", name: "Backup", isRoot: false, total: 2_000_000_000_000,
-                    free: 640_000_000_000, format: "ExFAT", isExternal: true),
+                    free: 640_000_000_000, format: "ExFAT", isExternal: true, uuid: nil),
     ]
 
     // Композиция вью на градиентном «обое», чтобы была видна полупрозрачность
@@ -105,10 +105,13 @@ MainActor.assumeIsolated {
         volumes: [VolumeUsage] = fakeVolumes,
         out: String
     ) {
-        let monitor = SystemMonitor()
+        // Хранилище истории — в tmp/: рендер снимков не должен ни читать, ни
+        // писать настоящую историю владельца.
+        let history = HistoryStore(directory: URL(fileURLWithPath: "tmp/screenshot-history"))
+        let monitor = SystemMonitor(history: history)
         monitor.setScreenshotState(cpu: fakeCPU, memory: fakeMemory, volumes: volumes)
         monitor.setScreenshotGPU(0.62)
-        let folders = FolderTracker()
+        let folders = FolderTracker(history: history)
         folders.setScreenshotState(folders: fakeFolders, scans: fakeScans)
         monitor.showCPU = true
         monitor.showGPU = true

@@ -3,6 +3,40 @@
 All notable changes to SysPulse are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.11.0] — 2026-09-14
+
+### Added
+- History for built-in volumes, sampled once an hour. Which volumes count as
+  built-in is decided by `volumeIsInternal` — the same signal the eject button
+  goes by, and the same one Finder uses. `volumeIsRemovable` and
+  `volumeIsEjectable` describe media that comes out of a drive and are both
+  false for an ordinary USB disk, so they are the wrong keys for this. Every
+  internal volume is recorded, not just the boot one. Removable volumes are not
+  recorded at all: a drive plugged in for an hour a week produces a line where
+  "the disk filled up" cannot be told apart from "the disk was unplugged".
+- Clicking a built-in volume's label in the panel opens its chart; the hover tip
+  says so. No icon like the folders have, on purpose — the disk row lives in the
+  fixed label/bar/value grid, so a column for it would appear on every row and
+  widen the panel by 18pt for the sake of a button on one of them.
+- The hour is measured from the last recorded point rather than from the top of
+  the clock, so restarting mid-hour does not break the series. The interval is
+  not configurable: free space moves slowly, and points closer together than an
+  hour would add nothing to "when did this drive start filling up?" except file
+  size.
+
+### Changed
+- The chart remembers the range you picked, per folder and per volume. One
+  folder is watched for its daily ripple and another for its quarterly trend;
+  resetting to Day on every open meant setting it again every time. If the
+  remembered range is no longer available — history trimmed, or the choice
+  carried over from something with a longer record — the longest available one
+  is shown instead of falling back to Day, which would discard the intent
+  entirely.
+- A volume is identified in history by its filesystem UUID, the only property
+  that survives a remount; the mount path does not, since a volume whose name is
+  taken comes back as "/Volumes/Name 1". Filesystems that keep no UUID (FAT)
+  fall back to the mount path.
+
 ## [0.10.0] — 2026-09-10
 
 ### Added
@@ -332,6 +366,7 @@ First release.
 - Clicking the floating window opens the menu bar menu right below it, so the app stays fully controllable when a crowded menu bar hides the status icon; right-click keeps a shorter context menu.
 - Launch at login, 10 UI languages, no network access and no special permissions.
 
+[0.11.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.11.0
 [0.10.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.10.0
 [0.9.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.9.0
 [0.8.0]: https://github.com/igorpronin/SysPulse/releases/tag/v0.8.0

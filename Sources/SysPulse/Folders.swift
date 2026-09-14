@@ -122,10 +122,10 @@ enum FolderScanner {
 
 @MainActor
 final class FolderTracker: ObservableObject {
-    /// История размеров: своё хранилище, потому что у неё своя жизнь на диске
-    /// (JSON в Application Support) и свой срок хранения — кэш обхода помнит
-    /// только последнее измерение, история помнит все.
-    let history = HistoryStore()
+    /// История размеров: своя жизнь на диске (JSON в Application Support) и
+    /// свой срок хранения — кэш обхода помнит только последнее измерение,
+    /// история помнит все. Хранилище общее с монитором: туда же пишутся тома.
+    let history: HistoryStore
 
     @Published private(set) var folders: [TrackedFolder] = [] {
         didSet {
@@ -143,7 +143,8 @@ final class FolderTracker: ObservableObject {
     private var timer: Timer?
     private var frozen = false
 
-    init() {
+    init(history: HistoryStore) {
+        self.history = history
         let defaults = UserDefaults.standard
         if let data = defaults.data(forKey: "TrackedFolders"),
            let stored = try? JSONDecoder().decode([TrackedFolder].self, from: data) {

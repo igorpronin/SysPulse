@@ -41,8 +41,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var uiSettingsWindow: NSWindow?
     private var historyWindow: NSWindow?
     private var lastPanelFrame: NSRect = .zero
-    private let monitor = SystemMonitor()
-    private let folders = FolderTracker()
+    // Хранилище истории одно на приложение: манифест общий, и писать в него с
+    // двух сторон должен один владелец.
+    private let history = HistoryStore()
+    private lazy var monitor = SystemMonitor(history: history)
+    private lazy var folders = FolderTracker(history: history)
     private let updates = UpdateChecker()
     private var updateMenuItem: NSMenuItem!
     private var updateSeparator: NSMenuItem!
@@ -195,12 +198,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         foldersSettingsWindow?.makeKeyAndOrderFront(nil)
     }
 
-    /// График истории. Окно одно на все папки и переключается на ту, чью иконку
-    /// нажали: держать по окну на папку значило бы разводить их по экрану
-    /// пачками, а сравнивать две папки рядом никто не просил.
     func openFolderHistory(_ folder: TrackedFolder) {
+        openHistory(title: folder.title, subtitle: folder.path, key: folder.id.uuidString)
+    }
+
+    func openVolumeHistory(_ volume: VolumeUsage) {
+        openHistory(title: volume.name, subtitle: volume.id, key: volume.historyKey)
+    }
+
+    /// График истории. Окно одно на всех и переключается на то, чью иконку
+    /// нажали: держать по окну на папку значило бы разводить их по экрану
+    /// пачками, а сравнивать два графика рядом никто не просил.
+    private func openHistory(title: String, subtitle: String, key: String) {
         let content = NSHostingController(
-            rootView: FolderHistoryView(folder: folder, history: folders.history)
+            rootView: HistoryChartView(title: title, subtitle: subtitle, key: key, history: history)
         )
         if let window = historyWindow {
             window.contentViewController = content
@@ -211,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             historyWindow = window
         }
-        historyWindow?.title = "\(folder.title) — \(L10n.shared.t(.history))"
+        historyWindow?.title = "\(title) — \(L10n.shared.t(.history))"
         NSApp.activate(ignoringOtherApps: true)
         historyWindow?.makeKeyAndOrderFront(nil)
     }

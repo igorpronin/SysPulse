@@ -130,10 +130,13 @@ The three core metrics still need no permissions and must stay that way.
 
 ## Folder size history
 
-`History.swift` records every completed scan; `HistoryView.swift` draws it. The
-store is JSON under `~/Library/Application Support/SysPulse/history/`:
-`index.json` maps each folder (id, path, alias, tracked flag) to its own file of
-`{"t": ISO8601, "s": bytes}` pairs. Dates are ISO 8601 and keys are short on
+`History.swift` records sizes; `HistoryView.swift` draws them. ONE `HistoryStore`
+serves the whole app — `AppDelegate` owns it and injects it into both
+`SystemMonitor` and `FolderTracker`, because the manifest is shared and must
+have a single writer. The store is JSON under
+`~/Library/Application Support/SysPulse/history/`: `index.json` maps each
+subject (id, path, alias, tracked flag, `kind` of "folder" or "volume") to its
+own file of `{"t": ISO8601, "s": bytes}` pairs. Dates are ISO 8601 and keys are short on
 purpose — the files are meant to be read and edited by hand, and there are
 thousands of points in them, not millions. No SQLite; that was a deliberate call.
 
@@ -152,6 +155,30 @@ does not: it also fires for a folder on an unmounted volume, and an unplugged
 drive must not destroy months of history. `touchIndex` adopts an untracked
 entry with the same path, so re-adding a folder continues its old chart under a
 new UUID.
+
+Volumes are recorded hourly by `recordVolume`, called from every disk poll — the
+five-second poll would otherwise write constantly, so the store itself holds the
+cadence, measured from the last recorded point rather than the top of the clock
+(a restart mid-hour must not break the series). The interval is deliberately not
+a setting.
+
+Only BUILT-IN volumes are recorded, decided by `volumeIsInternal` — the same
+signal the eject button uses. `volumeIsRemovable` and `volumeIsEjectable`
+describe media that comes out of a drive and are false for a plain USB disk, so
+they are the wrong keys. A removable drive's line cannot distinguish "filled up"
+from "was unplugged", which is why they are skipped entirely. A volume's history
+key is `volumeUUIDString` (see `VolumeUsage.historyKey`); the mount path is not
+stable, since a name collision produces "/Volumes/Name 1". FAT keeps no UUID, so
+the path is the fallback and `safeName` scrubs the slashes out of the filename.
+
+The chosen chart range is remembered per key in UserDefaults (`HistoryRanges`) —
+a display setting, so it does not belong in the data files. If the remembered
+range is no longer available, `HistoryChartView` falls back to the longest
+available one rather than to Day, which would throw the intent away.
+
+A built-in volume's chart opens by clicking its LABEL in the panel, not an icon:
+disk rows live in the fixed label/bar/value grid, so an icon column would appear
+on every row and widen the panel by 18pt for a button that belongs on one.
 
 `HistoryStore(directory:)` exists for tests. Overriding `HOME` does NOT work —
 `NSHomeDirectory()` reads the passwd entry for a non-sandboxed process and

@@ -191,6 +191,7 @@ struct ContentView: View {
     // При правом выравнивании строка зеркалится: метка уезжает вправо, значение влево.
     private func row<Bar: View>(
         label: String, dimLabel: Bool = false, labelTip: String? = nil,
+        labelAction: (() -> Void)? = nil,
         value: String, eject: VolumeUsage? = nil, @ViewBuilder bar: () -> Bar
     ) -> some View {
         // Подсказка висит на метке, а не на всей строке: у полоски памяти свои
@@ -202,6 +203,12 @@ struct ContentView: View {
             .truncationMode(.tail)
             .frame(width: labelWidth, alignment: monitor.alignRight ? .trailing : .leading)
             .hoverTip(labelTip)
+            // У тома по метке открывается история. Своей иконки, как у папок,
+            // тут нет намеренно: колонка под неё появилась бы у ВСЕХ строк и
+            // раздвинула бы панель ради кнопки на одной из них.
+            .overlay {
+                if let labelAction { PanelButton(action: labelAction) }
+            }
         let valueText = Text(value)
             .font(valueFont)
             .foregroundStyle(textColor)
@@ -303,9 +310,15 @@ struct ContentView: View {
             \(l10n.t(.openInFinder))
             """)
         let tip = lines.joined(separator: "\n")
+        // История ведётся только для постоянных томов, поэтому и открывать её
+        // можно только у них: у подключаемого диска под меткой пусто.
         return row(
             label: volume.isRoot ? l10n.t(.disk) : volume.name,
             dimLabel: !volume.isRoot,
+            labelTip: volume.isExternal ? nil : l10n.t(.historyClick),
+            labelAction: volume.isExternal
+                ? nil
+                : { (NSApp.delegate as? AppDelegate)?.openVolumeHistory(volume) },
             value: "\(Fmt.disk(volume.free)) \(l10n.t(.free))",
             eject: volume
         ) {
